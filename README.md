@@ -12,9 +12,10 @@ Welcome to the **Apigee Template Repository** — an enterprise catalogue of mod
 
 - [Overview & Architecture](#overview--architecture)
   - [How Templates & Features Work](#how-templates--features-work)
+- [Prerequisites](#prerequisites)
 - [Deploy with Jupyter Notebooks & Google Colab](#deploy-with-jupyter-notebooks--google-colab)
 - [Deploy with gcloud or aft CLI](#deploy-with-gcloud-or-aft-cli)
-- [Stable Features](#stable-features)
+- [Stable Templates](#stable-templates)
 - [Draft Extension Features](#draft-extension-features)
   - [1. Google Cloud Services](#1-google-cloud-services)
   - [2. Databases & Data Stores](#2-databases--data-stores)
@@ -97,6 +98,30 @@ graph TD
     T -->|Compiled by| AFT
     AFT -->|Generates| P
 ```
+
+---
+
+## Prerequisites
+
+Before deploying the templates and features in this repository, ensure the following requirements are met:
+
+### 1. Apigee X Instance
+An active Apigee X or Apigee hybrid instance with a configured environment and environment group is required. If you need to provision a new instance, use either of the following setup options:
+- **[Apigee AI Gateway Terraform Module](https://github.com/gcp-samples/apigee-aigateway-tf)**: Turnkey Terraform deployment for Apigee X tailored for AI Gateway patterns.
+- **[Apigee Quickstart Notebooks](https://github.com/gcp-samples/apigee-quickstart-notebooks)**: Interactive Google Colab quickstart notebooks for fast provisioning and evaluation.
+
+### 2. Anthropic Models Enablement
+To deploy templates or features that route to Anthropic Claude models (e.g., [`REST-AI-Messages.yaml`](templates/REST-AI-Messages.yaml) or Anthropic routes in [`REST-AI-Completions.yaml`](templates/REST-AI-Completions.yaml)), the Anthropic Claude models must be enabled in your Google Cloud project within the Gemini Enterprise Agent Platform / Vertex AI Model Garden:
+- Refer to the guide on [Enabling Anthropic Claude Models in Gemini Enterprise Agent Platform](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude) (or via [Vertex AI Model Garden](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude)).
+
+### 3. Model Armor Default Template
+For security templates and features that leverage Google Cloud Model Armor (such as [`ai-security-modelarmor.yaml`](features/ai-security-modelarmor.yaml) utilizing the `SUP-SanitizePrompt` policy), a template named `default-ma-template` must exist in your project and region:
+- **Template Resource ID**: `projects/{project_id}/locations/{location}/templates/default-ma-template`
+- **Enable Model Armor API**:
+  ```bash
+  gcloud services enable modelarmor.googleapis.com
+  ```
+- **Create Template**: Follow the [Model Armor - Create and Manage Templates Guide](https://docs.cloud.google.com/model-armor/manage-templates) to configure your prompt/response safety filters and create `default-ma-template`.
 
 ---
 

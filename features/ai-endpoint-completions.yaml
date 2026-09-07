@@ -7,10 +7,12 @@ documentation: ""
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []
-parameters: []
+parameters:
+  - name: CompletionsBasePath
+    default: /v1/chat/completions
 endpoints:
   - name: completions
-    basePath: /v1/chat/completions
+    basePath: "{CompletionsBasePath}"
     routes: []
     flows:
       - name: PreFlow

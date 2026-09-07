@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
+name: security-anonymization-sdp
+displayName: Sensitive Data Protection PII Masking
+type: feature
+description: Anonymizes sensitive PII in user input using Google Cloud Sensitive Data Protection (SDP) API.
+documentation: ""
+gateway: apigee
+schemaVersion: 1.0.0
+categories:
+  - security
+  - ai
+parameters: []
+defaultEndpoint:
+  name: default
+  basePath: /security-sdp-mask
+  routes:
+    - name: default
+      target: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: SC-SensitiveDataProtection
+        - name: JS-SetAnonymizedInput
+  faultRules: []
+defaultTarget:
+  name: default
+  url: https://aiplatform.googleapis.com
+  flows: []
+  faultRules: []
+  httpTargetConnection:
+    Properties: {}
+    URL: https://aiplatform.googleapis.com
+endpoints: []
+targets: []
+policies:
+  - name: SC-SensitiveDataProtection
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-SensitiveDataProtection
+        DisplayName: SC-SensitiveDataProtection
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: sdpRequest
+          IgnoreUnresolvedVariables: "false"
+          Set:
+            Verb: POST
+            Headers:
+              Header:
+                - Name: Content-Type
+                  _text: application/json
+            Payload:
+              metadata:
+                contentType: application/json
+              _text: |
+                {
+                  "item": {
+                    "value": "{user.input}"
+                  },
+                  "deidentifyConfig": {
+                    "infoTypeTransformations": {
+                      "transformations": [
+                        {
+                          "infoTypes": [
+                            { "name": "EMAIL_ADDRESS" },
+                            { "name": "PHONE_NUMBER" },
+                            { "name": "PERSON_NAME" },
+                            { "name": "CREDIT_CARD_NUMBER" },
+                            { "name": "US_SOCIAL_SECURITY_NUMBER" }
+                          ],
+                          "primitiveTransformation": {
+                            "characterMaskConfig": {
+                              "maskingCharacter": "*"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "inspectConfig": {
+                    "infoTypes": [
+                      { "name": "EMAIL_ADDRESS" },
+                      { "name": "PHONE_NUMBER" },
+                      { "name": "PERSON_NAME" },
+                      { "name": "CREDIT_CARD_NUMBER" },
+                      { "name": "US_SOCIAL_SECURITY_NUMBER" }
+                    ],
+                    "minLikelihood": "POSSIBLE"
+                  }
+                }
+        Response: sdpResponse
+        HTTPTargetConnection:
+          Properties: {}
+          URL: https://dlp.googleapis.com/v2/projects/{organization.name}/content:deidentify
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+  - name: JS-SetAnonymizedInput
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-SetAnonymizedInput
+        DisplayName: JS-SetAnonymizedInput
+        Properties: {}
+        Source: |
+          var responseContent = context.getVariable("sdpResponse.content");
+          if (responseContent) {
+            try {
+              var responseObj = (typeof responseContent === "object") ? responseContent : JSON.parse(responseContent);
+              var maskedText = null;
+              if (responseObj) {
+                if (responseObj.item && responseObj.item.value !== undefined) {
+                  maskedText = responseObj.item.value;
+                } else if (responseObj.text !== undefined) {
+                  maskedText = responseObj.text;
+                }
+              }
+              if (maskedText !== null && maskedText !== undefined) {
+                context.setVariable("ai.requestPrompt", maskedText);
+                context.setVariable("user.input", maskedText);
+                context.setVariable("user.inputChanged", true);
+              }
+            } catch (e) {
+              print("Error parsing SDP response: " + e);
+            }
+          }
+resources: []

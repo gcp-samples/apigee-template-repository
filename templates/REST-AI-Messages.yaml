@@ -1,0 +1,36 @@
+name: REST-AI-Messages
+type: template
+description: API template for REST-AI-Messages
+gateway: apigee
+schemaVersion: 1.0.0
+features:
+  - ../features/ai-endpoint-messages.yaml
+  - ../features/ai-target-googlecloud.yaml
+  - ../features/ai-model-preprocess.yaml
+  - ../features/ai-model-postprocess.yaml
+parameters:
+  - name: GoogleCloudProject
+    default: "{organization.name}"
+  - name: SimpleModel
+    default: google/gemini-3.5-flash-lite
+  - name: MediumModel
+    default: google/gemini-3.7-flash
+  - name: ComplexModel
+    default: google/gemini-3.7-flash
+  - name: ThinkingModel
+    default: google/gemini-3.7-flash
+  - name: ModelRouting
+    default: "'google/*'=googlecloud-oai,'anthropic/*'=googlecloud"
+  - name: ModelMapping
+    default: gemini-flash-latest=gemini-3.7-flash,gemini-2.5-flash=gemini-3.7-flash
+endpoints:
+  - name: anthropic
+    basePath: /v1/messages
+    routes: []
+targets:
+  - name: googlecloud-projects
+    url: https://aiplatform.googleapis.com/v1/projects
+  - name: googlecloud-oai
+    url: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/endpoints/openapi/chat/completions
+  - name: googlecloud
+    url: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/publishers/{ai.provider}/models/{ai.model}:{ai.method}

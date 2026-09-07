@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
+name: security-anonymization-presidio
+displayName: Presidio PII Masking
+type: feature
+description: Anonymizes sensitive PII in user input using Presidio Anonymizer service.
+documentation: ""
+gateway: apigee
+schemaVersion: 1.0.0
+categories:
+  - security
+  - ai
+parameters: []
+defaultEndpoint:
+  name: default
+  basePath: /security-presidio-mask
+  routes:
+    - name: default
+      target: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: SC-PresidioAnonymize
+        - name: JS-SetAnonymizedInput
+  faultRules: []
+defaultTarget:
+  name: default
+  url: https://aiplatform.googleapis.com
+  flows: []
+  faultRules: []
+  httpTargetConnection:
+    Properties: {}
+    URL: https://aiplatform.googleapis.com
+endpoints: []
+targets: []
+policies:
+  - name: SC-PresidioAnonymize
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: SC-PresidioAnonymize
+        DisplayName: SC-PresidioAnonymize
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: presidioRequest
+          IgnoreUnresolvedVariables: "false"
+          Set:
+            Verb: POST
+            Headers:
+              Header:
+                - Name: Content-Type
+                  _text: application/json
+            Payload:
+              metadata:
+                contentType: application/json
+              _text: |
+                {
+                  "text": "{user.input}",
+                  "anonymizers": {
+                    "DEFAULT": { "type": "replace", "new_value": "*******" }
+                  },
+                  "analyzer_results": [
+                    { "start": 11, "end": 19, "entity_type": "PERSON", "score": 0.85 },
+                    { "start": 44, "end": 56, "entity_type": "PHONE_NUMBER", "score": 0.75 }
+                  ]
+                }
+        Response: presidioResponse
+        HTTPTargetConnection:
+          Properties: {}
+          URL: https://presidio-anonymizer-323709580283.europe-west3.run.app/anonymize
+  - name: JS-SetAnonymizedInput
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-SetAnonymizedInput
+        DisplayName: JS-SetAnonymizedInput
+        Properties: {}
+        Source: |
+          var responseContent = context.getVariable("presidioResponse.content");
+          if (responseContent) {
+            try {
+              var responseObj = (typeof responseContent === "object") ? responseContent : JSON.parse(responseContent);
+              if (responseObj && responseObj.text !== undefined) {
+                context.setVariable("ai.requestPrompt", responseObj.text);
+                context.setVariable("user.input", responseObj.text);
+                context.setVariable("user.inputChanged", true);
+              }
+            } catch (e) {
+              print("Error parsing Presidio response: " + e);
+            }
+          }
+resources: []
