@@ -29,7 +29,7 @@ fi
 
 # 3. IAM Role Bindings
 echo "Configuring service account IAM permissions..."
-for role in roles/run.invoker roles/aiplatform.user roles/modelarmor.user; do
+for role in roles/run.invoker roles/aiplatform.user roles/modelarmor.user roles/dlp.user; do
   gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
       --member="serviceAccount:${SA_EMAIL}" \
       --role="${role}" \
