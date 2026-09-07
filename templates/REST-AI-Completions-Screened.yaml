@@ -1,20 +1,19 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
-name: REST-AI-Completions-SDP
+name: REST-AI-Completions-ModelArmor
 type: template
-description: API template for REST-AI-Completions with Sensitive Data Protection
+description: API template for REST-AI-Completions with ModelArmor
 gateway: apigee
 schemaVersion: 1.0.0
 features:
   - ../features/ai-endpoint-completions.yaml
   - ../features/ai-target-googlecloud.yaml
   - ../features/ai-model-preprocess.yaml
-  - ../features/security-anonymization-sdp.yaml
-  - ../features/auth-apikey-verify.yaml
+  - ../features/ai-security-modelarmor.yaml
   - ../features/ai-model-failover.yaml
   - ../features/ai-model-postprocess.yaml
 parameters:
   - name: CompletionsBasePath
-    default: /v1/chat/completions/sdp
+    default: /v1/chat/completions/modelarmor
   - name: SimpleModel
     default: google/gemini-3.5-flash-lite
   - name: MediumModel

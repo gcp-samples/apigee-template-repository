@@ -21,7 +21,7 @@ parameters:
   - name: ModelRouting
     default: "'google/*'=googlecloud-oai,'anthropic/*'=googlecloud"
   - name: ModelMapping
-    default: "gemini-flash-latest=gemini-3.7-flash,gemini-2.5-flash=gemini-3.7-flash"
+    default: "gemini-flash-latest=gemini-3.8-flash,gemini-2.5-flash=gemini-3.8-flash"
 defaultEndpoint:
   name: default
   basePath: /ai-model-routing
@@ -327,11 +327,6 @@ policies:
               Scopes:
                 Scope: https://www.googleapis.com/auth/cloud-platform
         IgnoreUnresolvedVariables: "true"
-        AssignTo:
-          metadata:
-            createNew: "false"
-            transport: http
-            type: request
   - name: SC-ModelJudge
     type: ServiceCallout
     content:

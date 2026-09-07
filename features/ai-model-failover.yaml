@@ -31,7 +31,6 @@ defaultTarget:
     name: default-fault
     steps:
       - name: AM-SetGoogleToken
-        condition: request.header.Authorization == null
       - name: SC-Failover-GoogleCloud-OAI
       - name: JS-SetFailoverResponse
   faultRules: []
@@ -55,11 +54,6 @@ policies:
               Scopes:
                 Scope: https://www.googleapis.com/auth/cloud-platform
         IgnoreUnresolvedVariables: "true"
-        AssignTo:
-          metadata:
-            createNew: "false"
-            transport: http
-            type: request
   - name: SC-Failover-GoogleCloud-OAI
     type: ServiceCallout
     content:
@@ -78,17 +72,20 @@ policies:
           Set:
             Verb: POST
             Headers:
-              Header:
-                - Name: Content-Type
-                  _text: application/json
-                - Name: Authorization
-                  _text: "{request.header.authorization}"
+            - Header:
+                metadata:
+                  name: Content-Type
+                _text: application/json
+            - Header:
+                metadata:
+                  name: Authorization
+                _text: "{response.header.authorization}"
             Payload:
               metadata:
                 contentType: application/json
               _text: |
                 {
-                  "model": "google/gemini-3.7-flash",
+                  "model": "google/gemini-3.8-flash",
                   "messages": [
                     {
                       "role": "user",
