@@ -1,0 +1,1102 @@
+name: data-proxy-firestore
+displayName: Firestore RESTful Proxy
+type: feature
+gateway: apigee
+schemaVersion: 1.0.0
+description: Configurable CRUD proxy feature for Cloud Firestore collections with automatic OpenAPI 3.2 specification generation, validation, and data conversion.
+documentation: ''
+categories:
+- database
+- firestore
+- crud
+parameters:
+- name: CollectionName
+  description: The name of the Cloud Firestore collection
+  default: books
+- name: Database
+  description: The Cloud Firestore database ID
+  default: (default)
+- name: GoogleCloudProject
+  description: Google Cloud project ID hosting the Cloud Firestore database
+  default: '{organization.name}'
+- name: SampleObject
+  description: Sample JSON object defining the schema for documents in the collection
+  default: '{\"name\": \"The Red and The Black\", \"author\": \"Stendhal\"}'
+endpoints:
+- name: default
+  basePath: /{CollectionName}
+  routes:
+  - name: default
+    target: default
+  flows:
+  - name: PreFlow
+    mode: Request
+    steps:
+    - name: CORS-AddCors
+    - name: AM-SetOpenApiSpec
+      condition: proxy.pathsuffix == "/openapi.yaml"
+    - name: JS-ParsePayload
+  faultRules: []
+targets:
+- name: default
+  url: https://firestore.googleapis.com/v1/projects/{GoogleCloudProject}/databases/{Database}/documents
+  auth: GoogleAccessToken
+  scopes:
+  - https://www.googleapis.com/auth/cloud-platform
+  flows:
+  - name: PreFlow
+    mode: Request
+    steps:
+    - name: JS-ProcessTarget
+  - name: PostFlow
+    mode: Response
+    steps:
+    - name: JS-TransformResponse
+  faultRules: []
+  httpTargetConnection:
+    URL: https://firestore.googleapis.com/v1/projects/{GoogleCloudProject}/databases/{Database}/documents
+    Authentication:
+      GoogleAccessToken:
+        Scopes:
+          Scope: https://www.googleapis.com/auth/cloud-platform
+    Properties:
+      Property:
+        metadata:
+          name: success.codes
+        _text: 1xx,2xx,3xx,4xx
+policies:
+- name: CORS-AddCors
+  type: AssignMessage
+  content:
+    AssignMessage:
+      metadata:
+        continueOnError: 'false'
+        enabled: 'true'
+        name: CORS-AddCors
+      DisplayName: CORS-AddCors
+      Set:
+        Headers:
+        - Header:
+            metadata:
+              name: Access-Control-Allow-Origin
+            _text: '*'
+        - Header:
+            metadata:
+              name: Access-Control-Allow-Headers
+            _text: origin, x-requested-with, accept, content-type, authorization, x-api-key
+        - Header:
+            metadata:
+              name: Access-Control-Max-Age
+            _text: '3628800'
+        - Header:
+            metadata:
+              name: Access-Control-Allow-Methods
+            _text: GET, PUT, POST, DELETE, PATCH, OPTIONS
+      IgnoreUnresolvedVariables: 'true'
+- name: AM-SetOpenApiSpec
+  type: AssignMessage
+  content:
+    AssignMessage:
+      metadata:
+        enabled: 'true'
+        name: AM-SetOpenApiSpec
+      DisplayName: AM-SetOpenApiSpec
+      AssignVariable:
+        Name: openapi.spec
+        ResourceURL: oas://openapi.yaml
+      IgnoreUnresolvedVariables: 'true'
+- name: JS-ParsePayload
+  type: Javascript
+  content:
+    Javascript:
+      metadata:
+        continueOnError: 'false'
+        enabled: 'true'
+        timeLimit: '200'
+        name: JS-ParsePayload
+      DisplayName: JS-ParsePayload
+      Properties: {}
+      Source: |
+        var origVerb = context.getVariable("request.verb");
+        context.setVariable("orig.verb", origVerb);
+
+        var collectionName = "{CollectionName}";
+        var sampleObjectStr = '{SampleObject}';
+        var proxyPath = context.getVariable("proxy.pathsuffix") || "";
+
+        function valToFirestoreValue(val) {
+          if (val === null || val === undefined) {
+            return { nullValue: null };
+          }
+          if (typeof val === "boolean") {
+            return { booleanValue: val };
+          }
+          if (typeof val === "number") {
+            if (Math.floor(val) === val && !String(val).includes(".")) {
+              return { integerValue: String(val) };
+            }
+            return { doubleValue: val };
+          }
+          if (typeof val === "string") {
+            return { stringValue: val };
+          }
+          if (Array.isArray(val)) {
+            var values = [];
+            for (var i = 0; i < val.length; i++) {
+              values.push(valToFirestoreValue(val[i]));
+            }
+            return { arrayValue: { values: values } };
+          }
+          if (typeof val === "object") {
+            return { mapValue: { fields: jsonToFirestoreFields(val) } };
+          }
+          return { stringValue: String(val) };
+        }
+
+        function jsonToFirestoreFields(obj) {
+          var fields = {};
+          for (var key in obj) {
+            if (obj.hasOwnProperty(key)) {
+              fields[key] = valToFirestoreValue(obj[key]);
+            }
+          }
+          return fields;
+        }
+
+        function getPayload() {
+          var c = context.getVariable("request.content");
+          if (!c) return null;
+          if (typeof c === "object") return c;
+          try {
+            return JSON.parse(c);
+          } catch (e) {
+            return null;
+          }
+        }
+
+        function slugify(text) {
+          if (!text) return "";
+          return (text + "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        }
+
+        function generateDocId(item, col) {
+          if (!item) return col + "-" + Math.floor(Math.random() * 1000000000);
+          if (item.id) return item.id;
+          var sing = col.length > 3 && col.substr(-1) === "s" ? col.substr(0, col.length - 1) : col;
+          if (item[sing + "_id"]) return item[sing + "_id"];
+          if (item[col + "_id"]) return item[col + "_id"];
+          if (item.name) {
+            var s = slugify(item.name);
+            if (s) return s;
+          }
+          if (item.title) {
+            var st = slugify(item.title);
+            if (st) return st;
+          }
+          return sing + "-" + Math.floor(Math.random() * 1000000000);
+        }
+
+        if (proxyPath === "/openapi.yaml") {
+          context.setVariable("flow.isOpenApi", "true");
+        } else {
+          // Parse query parameters
+          var queryString = context.getVariable("request.querystring") || "";
+          if (!queryString) {
+            var uri = context.getVariable("request.uri") || "";
+            var qIdx = uri.indexOf("?");
+            if (qIdx !== -1) {
+              queryString = uri.substring(qIdx + 1);
+            }
+          }
+
+          var sortField = "";
+          var sortDesc = false;
+          var limit = null;
+          var offset = null;
+          var filters = {};
+
+          if (queryString) {
+            var pairs = queryString.split("&");
+            for (var p = 0; p < pairs.length; p++) {
+              if (pairs[p]) {
+                var kv = pairs[p].split("=");
+                var rawKey = decodeURIComponent(kv[0] || "").trim();
+                var rawVal = kv.length > 1 ? decodeURIComponent(kv[1].replace(/\+/g, " ")).trim() : "";
+                if (!rawKey) continue;
+
+                var lowerKey = rawKey.toLowerCase();
+                if (lowerKey === "sort" || lowerKey === "orderby") {
+                  var sVal = rawVal;
+                  if (sVal.indexOf("-") === 0) {
+                    sortDesc = true;
+                    sortField = sVal.substring(1);
+                  } else if (sVal.toLowerCase().indexOf(" desc") !== -1) {
+                    sortDesc = true;
+                    sortField = sVal.replace(/ desc/i, "").trim();
+                  } else if (sVal.toLowerCase().indexOf(":desc") !== -1) {
+                    sortDesc = true;
+                    sortField = sVal.replace(/:desc/i, "").trim();
+                  } else {
+                    sortDesc = false;
+                    sortField = sVal.replace(/ asc/i, "").replace(/:asc/i, "").replace(/^\+/, "").trim();
+                  }
+                } else if (lowerKey === "limit" || lowerKey === "pagesize") {
+                  var lNum = parseInt(rawVal, 10);
+                  if (!isNaN(lNum) && lNum > 0) limit = lNum;
+                } else if (lowerKey === "offset" || lowerKey === "skip") {
+                  var oNum = parseInt(rawVal, 10);
+                  if (!isNaN(oNum) && oNum >= 0) offset = oNum;
+                } else if (lowerKey !== "apikey" && lowerKey !== "key") {
+                  filters[rawKey] = rawVal;
+                }
+              }
+            }
+          }
+
+          if (sortField) {
+            context.setVariable("flow.sortField", sortField);
+            context.setVariable("flow.sortDesc", sortDesc ? "true" : "false");
+          }
+          if (limit !== null) {
+            context.setVariable("flow.limit", String(limit));
+          }
+          if (offset !== null) {
+            context.setVariable("flow.offset", String(offset));
+          }
+          if (Object.keys(filters).length > 0) {
+            context.setVariable("flow.filtersJson", JSON.stringify(filters));
+          }
+
+          var isRoot = !proxyPath || proxyPath === "/" || proxyPath === "";
+          var docId = "";
+          if (!isRoot) {
+            docId = proxyPath.substring(1);
+            context.setVariable("flow.docId", docId);
+          }
+
+          var payload = getPayload();
+
+          if (origVerb === "POST" && isRoot) {
+            if (payload && Array.isArray(payload)) {
+              context.setVariable("flow.isBatchWrite", "true");
+              var writes = [];
+              var gcpProj = "{GoogleCloudProject}";
+              if (!gcpProj || gcpProj === "{organization.name}") {
+                gcpProj = context.getVariable("organization.name");
+              }
+              var dbName = "{Database}";
+              for (var b = 0; b < payload.length; b++) {
+                var bItem = payload[b];
+                var bId = generateDocId(bItem, collectionName);
+                bItem.id = bId;
+                var fullDocPath = "projects/" + gcpProj + "/databases/" + dbName + "/documents/" + collectionName + "/" + bId;
+                writes.push({
+                  update: {
+                    name: fullDocPath,
+                    fields: jsonToFirestoreFields(bItem)
+                  }
+                });
+              }
+              context.setVariable("flow.batchOutput", JSON.stringify(payload));
+              context.setVariable("flow.fsPayload", JSON.stringify({ writes: writes }));
+            } else {
+              var itemObj = payload || {};
+              var singleId = generateDocId(itemObj, collectionName);
+              itemObj.id = singleId;
+              context.setVariable("flow.docId", singleId);
+              context.setVariable("flow.singleOutput", JSON.stringify(itemObj));
+              context.setVariable("flow.fsPayload", JSON.stringify({ fields: jsonToFirestoreFields(itemObj) }));
+            }
+          } else if ((origVerb === "PUT" || origVerb === "PATCH" || origVerb === "POST") && docId) {
+            var updateObj = payload || {};
+            updateObj.id = docId;
+            context.setVariable("flow.singleOutput", JSON.stringify(updateObj));
+            context.setVariable("flow.fsPayload", JSON.stringify({ fields: jsonToFirestoreFields(updateObj) }));
+          } else if (origVerb === "GET" && isRoot) {
+            // Build Firestore structuredQuery for runQuery
+            var structuredQuery = {
+              from: [{ collectionId: collectionName }]
+            };
+
+            var filterKeys = Object.keys(filters);
+            if (filterKeys.length === 1) {
+              var fk = filterKeys[0];
+              var fVal = filters[fk];
+              structuredQuery.where = {
+                fieldFilter: {
+                  field: { fieldPath: fk },
+                  op: "EQUAL",
+                  value: valToFirestoreValue(fVal)
+                }
+              };
+            } else if (filterKeys.length > 1) {
+              var compositeFilters = [];
+              for (var f = 0; f < filterKeys.length; f++) {
+                var kName = filterKeys[f];
+                compositeFilters.push({
+                  fieldFilter: {
+                    field: { fieldPath: kName },
+                    op: "EQUAL",
+                    value: valToFirestoreValue(filters[kName])
+                  }
+                });
+              }
+              structuredQuery.where = {
+                compositeFilter: {
+                  op: "AND",
+                  filters: compositeFilters
+                }
+              };
+            }
+
+            if (sortField) {
+              structuredQuery.orderBy = [
+                {
+                  field: { fieldPath: sortField },
+                  direction: sortDesc ? "DESCENDING" : "ASCENDING"
+                }
+              ];
+            }
+
+            if (limit !== null) {
+              structuredQuery.limit = limit;
+            }
+            if (offset !== null) {
+              structuredQuery.offset = offset;
+            }
+
+            context.setVariable("flow.structuredQuery", JSON.stringify({ structuredQuery: structuredQuery }));
+            context.setVariable("flow.isRunQuery", "true");
+          }
+        }
+- name: JS-ProcessTarget
+  type: Javascript
+  content:
+    Javascript:
+      metadata:
+        continueOnError: 'false'
+        enabled: 'true'
+        timeLimit: '200'
+        name: JS-ProcessTarget
+      DisplayName: JS-ProcessTarget
+      Properties: {}
+      Source: |
+        var gcpProject = "{GoogleCloudProject}";
+        if (!gcpProject || gcpProject === "{organization.name}") {
+          gcpProject = context.getVariable("organization.name");
+        }
+        var database = "{Database}";
+        var collectionName = "{CollectionName}";
+        var firestoreBase = "https://firestore.googleapis.com/v1/projects/" + gcpProject + "/databases/" + database + "/documents";
+
+        context.setVariable("target.copy.pathsuffix", false);
+
+        var isOpenApi = context.getVariable("flow.isOpenApi") === "true";
+        var isBatchWrite = context.getVariable("flow.isBatchWrite") === "true";
+        var origVerb = context.getVariable("orig.verb") || context.getVariable("request.verb");
+        var docId = context.getVariable("flow.docId");
+
+        if (isOpenApi) {
+          context.setVariable("target.url", firestoreBase + "/" + collectionName + "/openapi.yaml");
+        } else if (isBatchWrite) {
+          context.setVariable("target.url", firestoreBase + ":batchWrite");
+          context.setVariable("request.verb", "POST");
+          context.setVariable("request.content", context.getVariable("flow.fsPayload"));
+          context.setVariable("request.header.Content-Type", "application/json");
+        } else if (origVerb === "GET") {
+          if (docId) {
+            context.setVariable("target.url", firestoreBase + "/" + collectionName + "/" + docId);
+            context.setVariable("request.verb", "GET");
+          } else {
+            context.setVariable("target.url", firestoreBase + ":runQuery");
+            context.setVariable("request.verb", "POST");
+            context.setVariable("request.content", context.getVariable("flow.structuredQuery"));
+            context.setVariable("request.header.Content-Type", "application/json");
+          }
+        } else if (origVerb === "POST" || origVerb === "PUT" || origVerb === "PATCH") {
+          context.setVariable("target.url", firestoreBase + "/" + collectionName + "/" + docId);
+          context.setVariable("request.verb", "PATCH");
+          context.setVariable("request.content", context.getVariable("flow.fsPayload"));
+          context.setVariable("request.header.Content-Type", "application/json");
+        } else if (origVerb === "DELETE") {
+          context.setVariable("target.url", firestoreBase + "/" + collectionName + "/" + docId);
+          context.setVariable("request.verb", "DELETE");
+        }
+- name: JS-TransformResponse
+  type: Javascript
+  content:
+    Javascript:
+      metadata:
+        continueOnError: 'false'
+        enabled: 'true'
+        timeLimit: '200'
+        name: JS-TransformResponse
+      DisplayName: JS-TransformResponse
+      Properties: {}
+      Source: |
+        var collectionName = "{CollectionName}";
+        var sampleObjectStr = '{SampleObject}';
+
+        function getEntityName(col) {
+          if (!col) return "Item";
+          var n = col;
+          if (n.length > 3 && n.substr(-1) === "s") {
+            n = n.substr(0, n.length - 1);
+          }
+          return n.charAt(0).toUpperCase() + n.slice(1);
+        }
+
+        var entityName = getEntityName(collectionName);
+
+        function makeIndent(n) {
+          var s = "";
+          for (var i = 0; i < n; i++) s += " ";
+          return s;
+        }
+
+        function schemaFromVal(val, indent) {
+          var sp = makeIndent(indent);
+          if (val === null || val === undefined) {
+            return sp + "type: string\n" + sp + "nullable: true\n";
+          }
+          if (typeof val === "string") {
+            return sp + "type: string\n" + sp + "example: " + JSON.stringify(val) + "\n";
+          }
+          if (typeof val === "boolean") {
+            return sp + "type: boolean\n" + sp + "example: " + val + "\n";
+          }
+          if (typeof val === "number") {
+            var isInt = Math.floor(val) === val;
+            return sp + "type: " + (isInt ? "integer" : "number") + "\n" + sp + "example: " + val + "\n";
+          }
+          if (Array.isArray(val)) {
+            var out = sp + "type: array\n" + sp + "items:\n";
+            if (val.length > 0) {
+              out += schemaFromVal(val[0], indent + 2);
+            } else {
+              out += sp + "  type: string\n";
+            }
+            return out;
+          }
+          if (typeof val === "object") {
+            var out = sp + "type: object\n" + sp + "properties:\n";
+            for (var k in val) {
+              if (val.hasOwnProperty(k)) {
+                out += sp + "  " + k + ":\n" + schemaFromVal(val[k], indent + 4);
+              }
+            }
+            return out;
+          }
+          return sp + "type: string\n";
+        }
+
+        function generateOpenApiSpec(col, sampleStr) {
+          var sample = {};
+          try {
+            sample = JSON.parse(sampleStr);
+          } catch (e) {
+            sample = { name: "Sample Item" };
+          }
+
+          var ent = getEntityName(col);
+
+          var propsYaml = "";
+          if (!sample.id) {
+            propsYaml += "        id:\n          type: string\n          description: Unique document identifier\n          example: \"" + col + "-123\"\n";
+          }
+          for (var key in sample) {
+            if (sample.hasOwnProperty(key)) {
+              propsYaml += "        " + key + ":\n" + schemaFromVal(sample[key], 10);
+            }
+          }
+
+          var queryParamsYaml = "";
+          for (var qk in sample) {
+            if (sample.hasOwnProperty(qk) && (typeof sample[qk] === "string" || typeof sample[qk] === "number" || typeof sample[qk] === "boolean")) {
+              var pType = typeof sample[qk] === "number" ? (Math.floor(sample[qk]) === sample[qk] ? "integer" : "number") : (typeof sample[qk] === "boolean" ? "boolean" : "string");
+              queryParamsYaml += "        - name: " + qk + "\n";
+              queryParamsYaml += "          in: query\n";
+              queryParamsYaml += "          required: false\n";
+              queryParamsYaml += "          description: Filter " + col + " by " + qk + "\n";
+              queryParamsYaml += "          schema:\n";
+              queryParamsYaml += "            type: " + pType + "\n";
+            }
+          }
+
+          var yaml = "openapi: 3.2.0\n" +
+            "info:\n" +
+            "  title: " + ent + " Service API\n" +
+            "  description: Apigee proxy managing " + col + " backed by Cloud Firestore.\n" +
+            "  version: 1.0.0\n" +
+            "servers:\n" +
+            "  - url: /" + col + "\n" +
+            "    description: Base URL for " + ent + " service\n" +
+            "paths:\n" +
+            "  /" + col + "/openapi.yaml:\n" +
+            "    get:\n" +
+            "      summary: Retrieve OpenAPI 3.2 specification\n" +
+            "      operationId: getOpenApiSpec\n" +
+            "      responses:\n" +
+            "        '200':\n" +
+            "          description: OpenAPI 3.2 specification in YAML\n" +
+            "          content:\n" +
+            "            text/yaml:\n" +
+            "              schema:\n" +
+            "                type: string\n" +
+            "  /" + col + ":\n" +
+            "    get:\n" +
+            "      summary: List all " + col + " with optional filtering and sorting\n" +
+            "      operationId: list" + ent + "s\n" +
+            "      parameters:\n" +
+            "        - name: sort\n" +
+            "          in: query\n" +
+            "          required: false\n" +
+            "          description: Field to sort by. Prefix with '-' for descending order (e.g. -name) or suffix with ':asc' / ':desc'\n" +
+            "          schema:\n" +
+            "            type: string\n" +
+            "        - name: orderBy\n" +
+            "          in: query\n" +
+            "          required: false\n" +
+            "          description: Firestore orderBy expression (e.g. 'name asc' or 'name desc')\n" +
+            "          schema:\n" +
+            "            type: string\n" +
+            "        - name: limit\n" +
+            "          in: query\n" +
+            "          required: false\n" +
+            "          description: Maximum number of records to return\n" +
+            "          schema:\n" +
+            "            type: integer\n" +
+            "            default: 100\n" +
+            "        - name: offset\n" +
+            "          in: query\n" +
+            "          required: false\n" +
+            "          description: Number of records to skip for pagination\n" +
+            "          schema:\n" +
+            "            type: integer\n" +
+            "            default: 0\n" +
+            queryParamsYaml +
+            "      responses:\n" +
+            "        '200':\n" +
+            "          description: List of " + col + " records\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                type: array\n" +
+            "                items:\n" +
+            "                  $ref: '#/components/schemas/" + ent + "'\n" +
+            "    post:\n" +
+            "      summary: Create a new " + ent + " or batch create/update " + col + "\n" +
+            "      operationId: create" + ent + "\n" +
+            "      requestBody:\n" +
+            "        required: true\n" +
+            "        description: Single " + ent + " object or array of " + ent + " objects for batch operations\n" +
+            "        content:\n" +
+            "          application/json:\n" +
+            "            schema:\n" +
+            "              oneOf:\n" +
+            "                - $ref: '#/components/schemas/" + ent + "'\n" +
+            "                - type: array\n" +
+            "                  items:\n" +
+            "                    $ref: '#/components/schemas/" + ent + "'\n" +
+            "      responses:\n" +
+            "        '201':\n" +
+            "          description: Created " + ent + " record or records\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                oneOf:\n" +
+            "                  - $ref: '#/components/schemas/" + ent + "'\n" +
+            "                  - type: array\n" +
+            "                    items:\n" +
+            "                      $ref: '#/components/schemas/" + ent + "'\n" +
+            "  /" + col + "/{id}:\n" +
+            "    parameters:\n" +
+            "      - name: id\n" +
+            "        in: path\n" +
+            "        required: true\n" +
+            "        description: Unique identifier of the " + ent + "\n" +
+            "        schema:\n" +
+            "          type: string\n" +
+            "    get:\n" +
+            "      summary: Retrieve a single " + ent + " by ID\n" +
+            "      operationId: get" + ent + "ById\n" +
+            "      responses:\n" +
+            "        '200':\n" +
+            "          description: Found " + ent + " record\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                $ref: '#/components/schemas/" + ent + "'\n" +
+            "        '404':\n" +
+            "          description: " + ent + " not found\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                $ref: '#/components/schemas/ErrorResponse'\n" +
+            "    put:\n" +
+            "      summary: Replace or update a " + ent + " by ID\n" +
+            "      operationId: update" + ent + "\n" +
+            "      requestBody:\n" +
+            "        required: true\n" +
+            "        content:\n" +
+            "          application/json:\n" +
+            "            schema:\n" +
+            "              $ref: '#/components/schemas/" + ent + "'\n" +
+            "      responses:\n" +
+            "        '200':\n" +
+            "          description: Updated " + ent + " record\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                $ref: '#/components/schemas/" + ent + "'\n" +
+            "        '404':\n" +
+            "          description: " + ent + " not found\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                $ref: '#/components/schemas/ErrorResponse'\n" +
+            "    patch:\n" +
+            "      summary: Partially update a " + ent + " by ID\n" +
+            "      operationId: patch" + ent + "\n" +
+            "      requestBody:\n" +
+            "        required: true\n" +
+            "        content:\n" +
+            "          application/json:\n" +
+            "            schema:\n" +
+            "              $ref: '#/components/schemas/" + ent + "'\n" +
+            "      responses:\n" +
+            "        '200':\n" +
+            "          description: Patched " + ent + " record\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                $ref: '#/components/schemas/" + ent + "'\n" +
+            "        '404':\n" +
+            "          description: " + ent + " not found\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                $ref: '#/components/schemas/ErrorResponse'\n" +
+            "    delete:\n" +
+            "      summary: Delete a " + ent + " by ID\n" +
+            "      operationId: delete" + ent + "\n" +
+            "      responses:\n" +
+            "        '204':\n" +
+            "          description: " + ent + " deleted\n" +
+            "        '404':\n" +
+            "          description: " + ent + " not found\n" +
+            "          content:\n" +
+            "            application/json:\n" +
+            "              schema:\n" +
+            "                $ref: '#/components/schemas/ErrorResponse'\n" +
+            "components:\n" +
+            "  schemas:\n" +
+            "    " + ent + ":\n" +
+            "      type: object\n" +
+            "      properties:\n" +
+            propsYaml +
+            "      additionalProperties: true\n" +
+            "    ErrorResponse:\n" +
+            "      type: object\n" +
+            "      properties:\n" +
+            "        error:\n" +
+            "          type: string\n" +
+            "          example: Record not found\n";
+
+          return yaml;
+        }
+
+        function firestoreValueToVal(fv) {
+          if (!fv) return null;
+          if ("stringValue" in fv) return fv.stringValue;
+          if ("integerValue" in fv) return parseInt(fv.integerValue, 10);
+          if ("doubleValue" in fv) return parseFloat(fv.doubleValue);
+          if ("booleanValue" in fv) return fv.booleanValue;
+          if ("nullValue" in fv) return null;
+          if ("timestampValue" in fv) return fv.timestampValue;
+          if ("geoPointValue" in fv) return fv.geoPointValue;
+          if ("arrayValue" in fv) {
+            var arr = [];
+            if (fv.arrayValue && fv.arrayValue.values) {
+              for (var i = 0; i < fv.arrayValue.values.length; i++) {
+                arr.push(firestoreValueToVal(fv.arrayValue.values[i]));
+              }
+            }
+            return arr;
+          }
+          if ("mapValue" in fv) {
+            return firestoreFieldsToJson(fv.mapValue.fields || {});
+          }
+          return null;
+        }
+
+        function firestoreFieldsToJson(fields) {
+          var obj = {};
+          for (var key in fields) {
+            if (fields.hasOwnProperty(key)) {
+              obj[key] = firestoreValueToVal(fields[key]);
+            }
+          }
+          return obj;
+        }
+
+        function firestoreDocToJson(doc) {
+          if (!doc) return null;
+          var data = doc.fields ? firestoreFieldsToJson(doc.fields) : (typeof doc === "object" ? doc : null);
+          if (!data) return null;
+          if (doc.name && !data.id) {
+            var parts = doc.name.split("/");
+            data.id = parts[parts.length - 1];
+          }
+          return data;
+        }
+
+        function getResponseBody() {
+          var rc = context.getVariable("response.content");
+          if (!rc) return null;
+          if (typeof rc === "object") return rc;
+          try {
+            return JSON.parse(rc);
+          } catch (e) {
+            return null;
+          }
+        }
+
+        var proxyPath = context.getVariable("proxy.pathsuffix") || "";
+        var isOpenApi = context.getVariable("flow.isOpenApi") === "true" || proxyPath === "/openapi.yaml";
+        var isBatchWrite = context.getVariable("flow.isBatchWrite") === "true";
+        var origVerb = context.getVariable("orig.verb") || context.getVariable("request.verb");
+        var docId = context.getVariable("flow.docId");
+        var statusCode = parseInt(context.getVariable("response.status.code") || "200", 10);
+
+        if (isOpenApi) {
+          var openapiYaml = generateOpenApiSpec(collectionName, sampleObjectStr);
+          response.content = openapiYaml;
+          response.headers['Content-Type'] = 'text/yaml';
+          response.status.code = 200;
+          context.setVariable("response.status.code", 200);
+        } else if (isBatchWrite) {
+          if (statusCode >= 200 && statusCode < 300) {
+            var batchOut = context.getVariable("flow.batchOutput") || "[]";
+            response.content = batchOut;
+            response.status.code = 201;
+            context.setVariable("response.status.code", 201);
+          }
+          response.headers['Content-Type'] = 'application/json';
+        } else {
+          var respObj = getResponseBody();
+          if (statusCode >= 200 && statusCode < 300) {
+            response.headers['Content-Type'] = 'application/json';
+            if (origVerb === "DELETE") {
+              response.status.code = 204;
+              context.setVariable("response.status.code", 204);
+              response.content = "";
+            } else if (origVerb === "POST" && !docId) {
+              response.status.code = 201;
+              context.setVariable("response.status.code", 201);
+              if (respObj && respObj.fields) {
+                response.content = JSON.stringify(firestoreDocToJson(respObj));
+              } else {
+                response.content = context.getVariable("flow.singleOutput") || "{}";
+              }
+            } else if (origVerb === "POST" || origVerb === "PUT" || origVerb === "PATCH") {
+              response.status.code = 200;
+              context.setVariable("response.status.code", 200);
+              if (respObj && respObj.fields) {
+                response.content = JSON.stringify(firestoreDocToJson(respObj));
+              } else {
+                response.content = context.getVariable("flow.singleOutput") || "{}";
+              }
+            } else if (origVerb === "GET") {
+              response.status.code = 200;
+              context.setVariable("response.status.code", 200);
+              if (docId) {
+                if (respObj && respObj.fields) {
+                  response.content = JSON.stringify(firestoreDocToJson(respObj));
+                } else {
+                  response.content = JSON.stringify(respObj || {});
+                }
+              } else {
+                // Collection listing - handles runQuery array & list documents object
+                var docs = null;
+                if (respObj && respObj.documents) {
+                  docs = respObj.documents;
+                } else if (Array.isArray(respObj)) {
+                  docs = [];
+                  for (var r = 0; r < respObj.length; r++) {
+                    if (respObj[r] && respObj[r].document) {
+                      docs.push(respObj[r].document);
+                    }
+                  }
+                }
+
+                var list = [];
+                if (docs && docs.length > 0) {
+                  for (var d = 0; d < docs.length; d++) {
+                    var docItem = firestoreDocToJson(docs[d]);
+                    if (docItem) list.push(docItem);
+                  }
+                }
+
+                // Apply in-memory filtering
+                var filtersJson = context.getVariable("flow.filtersJson");
+                var filters = null;
+                try { if (filtersJson) filters = JSON.parse(filtersJson); } catch (fe) {}
+                if (filters && typeof filters === "object") {
+                  var fKeys = Object.keys(filters);
+                  if (fKeys.length > 0) {
+                    list = list.filter(function(item) {
+                      for (var fi = 0; fi < fKeys.length; fi++) {
+                        var k = fKeys[fi];
+                        if (item[k] === undefined) return false;
+                        var itemVal = (item[k] + "").toLowerCase();
+                        var expectedVal = (filters[k] + "").toLowerCase();
+                        if (itemVal !== expectedVal) return false;
+                      }
+                      return true;
+                    });
+                  }
+                }
+
+                // Apply in-memory sorting
+                var sortField = context.getVariable("flow.sortField");
+                var sortDesc = context.getVariable("flow.sortDesc") === "true";
+                if (sortField) {
+                  list.sort(function(a, b) {
+                    var va = a[sortField] !== undefined ? a[sortField] : "";
+                    var vb = b[sortField] !== undefined ? b[sortField] : "";
+                    var cmp = 0;
+                    if (typeof va === "number" && typeof vb === "number") {
+                      cmp = va - vb;
+                    } else {
+                      cmp = (va + "").localeCompare(vb + "");
+                    }
+                    return sortDesc ? -cmp : cmp;
+                  });
+                }
+
+                // Apply in-memory pagination
+                var offsetStr = context.getVariable("flow.offset");
+                if (offsetStr) {
+                  var off = parseInt(offsetStr, 10);
+                  if (!isNaN(off) && off > 0) list = list.slice(off);
+                }
+                var limitStr = context.getVariable("flow.limit");
+                if (limitStr) {
+                  var lim = parseInt(limitStr, 10);
+                  if (!isNaN(lim) && lim > 0) list = list.slice(0, lim);
+                }
+
+                response.content = JSON.stringify(list);
+              }
+            }
+          } else if (statusCode === 404) {
+            response.headers['Content-Type'] = 'application/json';
+            if (origVerb === "GET" && !docId) {
+              response.status.code = 200;
+              context.setVariable("response.status.code", 200);
+              response.content = "[]";
+            } else {
+              response.status.code = 404;
+              context.setVariable("response.status.code", 404);
+              response.content = JSON.stringify({ error: entityName + " not found" });
+            }
+          } else {
+            response.headers['Content-Type'] = 'application/json';
+          }
+        }
+resources:
+- name: openapi.yaml
+  type: oas
+  content: |
+    openapi: 3.2.0
+    info:
+      title: Book Service API
+      description: Apigee proxy managing books backed by Cloud Firestore.
+      version: 1.0.0
+    servers:
+      - url: /{CollectionName}
+        description: Base URL for Book service
+    paths:
+      /{CollectionName}/openapi.yaml:
+        get:
+          summary: Retrieve OpenAPI 3.2 specification
+          operationId: getOpenApiSpec
+          responses:
+            '200':
+              description: OpenAPI 3.2 specification in YAML
+              content:
+                text/yaml:
+                  schema:
+                    type: string
+      /{CollectionName}:
+        get:
+          summary: List all books with optional filtering and sorting
+          operationId: listBooks
+          parameters:
+            - name: sort
+              in: query
+              required: false
+              description: Field to sort by. Prefix with '-' for descending order (e.g. -name) or suffix with ':asc' / ':desc'
+              schema:
+                type: string
+            - name: orderBy
+              in: query
+              required: false
+              description: Firestore orderBy expression (e.g. 'name asc' or 'name desc')
+              schema:
+                type: string
+            - name: limit
+              in: query
+              required: false
+              description: Maximum number of records to return
+              schema:
+                type: integer
+                default: 100
+            - name: offset
+              in: query
+              required: false
+              description: Number of records to skip for pagination
+              schema:
+                type: integer
+                default: 0
+            - name: name
+              in: query
+              required: false
+              description: Filter books by name
+              schema:
+                type: string
+          responses:
+            '200':
+              description: List of books records
+              content:
+                application/json:
+                  schema:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book'
+        post:
+          summary: Create a new Book or batch create/update books
+          operationId: createBook
+          requestBody:
+            required: true
+            description: Single Book object or array of Book objects for batch operations
+            content:
+              application/json:
+                schema:
+                  oneOf:
+                    - $ref: '#/components/schemas/Book'
+                    - type: array
+                      items:
+                        $ref: '#/components/schemas/Book'
+          responses:
+            '201':
+              description: Created Book record or records
+              content:
+                application/json:
+                  schema:
+                    oneOf:
+                      - $ref: '#/components/schemas/Book'
+                      - type: array
+                        items:
+                          $ref: '#/components/schemas/Book'
+      /{CollectionName}/{id}:
+        parameters:
+          - name: id
+            in: path
+            required: true
+            description: Unique identifier of the Book
+            schema:
+              type: string
+        get:
+          summary: Retrieve a single Book by ID
+          operationId: getBookById
+          responses:
+            '200':
+              description: Found Book record
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/Book'
+            '404':
+              description: Book not found
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ErrorResponse'
+        put:
+          summary: Replace or update a Book by ID
+          operationId: updateBook
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Book'
+          responses:
+            '200':
+              description: Updated Book record
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/Book'
+            '404':
+              description: Book not found
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ErrorResponse'
+        patch:
+          summary: Partially update a Book by ID
+          operationId: patchBook
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Book'
+          responses:
+            '200':
+              description: Patched Book record
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/Book'
+            '404':
+              description: Book not found
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ErrorResponse'
+        delete:
+          summary: Delete a Book by ID
+          operationId: deleteBook
+          responses:
+            '204':
+              description: Book deleted
+            '404':
+              description: Book not found
+              content:
+                application/json:
+                  schema:
+                    $ref: '#/components/schemas/ErrorResponse'
+    components:
+      schemas:
+        Book:
+          type: object
+          properties:
+            id:
+              type: string
+              description: Unique document identifier
+              example: "books-123"
+            name:
+              type: string
+              example: "War and Peace"
+          additionalProperties: true
+        ErrorResponse:
+          type: object
+          properties:
+            error:
+              type: string
+              example: Record not found
+tests: []

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apigee OAuth 2.1 & OIDC Client</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="header-container">
+      <div class="logo-area">
+        <div class="logo-icon">API</div>
+        <div class="logo-title">
+          <h1>Apigee OAuth 2.1 & OIDC Tester</h1>
+          <span>Interactive Client Console & Verification Workbench</span>
+        </div>
+      </div>
+      <div class="quick-status">
+        <div class="status-pill" title="Server connectivity status">
+          <div class="status-dot" id="server-status-dot"></div>
+          <span id="server-status-text">Disconnected</span>
+        </div>
+        <div class="status-pill" title="Client registration status">
+          <div class="status-dot" id="client-status-dot"></div>
+          <span id="client-status-text">Unregistered</span>
+        </div>
+        <div class="status-pill" title="Token session status">
+          <div class="status-dot" id="token-status-dot"></div>
+          <span id="token-status-text">No Token</span>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btn-reset-state" title="Reset all saved configuration and tokens">Reset All</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Grid -->
+  <main>
+    <!-- Left Sidebar: Configuration & Environment -->
+    <aside>
+      <!-- Server Settings Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>Server Environment</span>
+          <span class="auto-save-tag" id="auto-save-tag">✓ Auto-saved</span>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-server-url">OAuth / OIDC Server URL</label>
+          <input type="url" id="cfg-server-url" placeholder="https://api.example.com" value="http://localhost:8080">
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-redirect-uri">Redirect URI</label>
+          <input type="url" id="cfg-redirect-uri" readonly>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-scopes">Scopes</label>
+          <input type="text" id="cfg-scopes" value="openid profile email mcp">
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-api-key">API Key (optional)</label>
+          <input type="text" id="cfg-api-key" placeholder="For API Key fallback verification">
+        </div>
+
+        <div class="form-group" style="margin-top: 14px;">
+          <button class="btn btn-secondary btn-block btn-sm" id="btn-test-discovery">Discover Metadata (/.well-known)</button>
+        </div>
+      </div>
+
+      <!-- Active Client Identity Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>Active Client Identity</span>
+          <span class="badge" id="badge-client-mode">Unregistered</span>
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-client-id">Client ID / URL</label>
+          <input type="text" id="cfg-client-id" placeholder="No client registered yet">
+        </div>
+
+        <div class="form-group">
+          <label for="cfg-client-secret">Client Secret</label>
+          <input type="password" id="cfg-client-secret" placeholder="Optional for public PKCE clients">
+        </div>
+
+        <div class="form-group" style="margin-top: 12px;">
+          <button class="btn btn-danger btn-block btn-sm" id="btn-clear-client">Reset Client Registration</button>
+        </div>
+      </div>
+
+      <!-- Architecture & CORS Info Card -->
+      <div class="card">
+        <div class="card-title">
+          <span>Zero Backend Needed</span>
+          <span class="badge badge-success">CORS Ready</span>
+        </div>
+        <p style="font-size: 11px; color: var(--text-dim); line-height: 1.4; margin-bottom: 8px;">
+          This client runs <strong>100% in your browser</strong>. Apigee proxies include <code>features/cors.yaml</code>, so direct <code>fetch()</code> requests work without any proxy server.
+        </p>
+        <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none; margin: 0; font-size: 11px; color: var(--text-muted);">
+          <input type="checkbox" id="chk-use-proxy" style="width: auto;">
+          <span>Use local Python CORS forwarder</span>
+        </label>
+      </div>
+    </aside>
+
+    <!-- Right Workspace -->
+    <section>
+      <!-- Stepper Bar -->
+      <div class="stepper-bar">
+        <div class="step-item active" id="step-nav-1" data-step="1">
+          <div class="step-number" id="step-num-1">1</div>
+          <div class="step-info">
+            <div class="step-title">1. Client Registration</div>
+            <div class="step-desc">DCR, CIMD, or App ID</div>
+          </div>
+        </div>
+
+        <div class="step-connector"></div>
+
+        <div class="step-item" id="step-nav-2" data-step="2">
+          <div class="step-number" id="step-num-2">2</div>
+          <div class="step-info">
+            <div class="step-title">2. User Flows & Sign In</div>
+            <div class="step-desc">PKCE Auth & Identity</div>
+          </div>
+        </div>
+
+        <div class="step-connector"></div>
+
+        <div class="step-item" id="step-nav-3" data-step="3">
+          <div class="step-number" id="step-num-3">3</div>
+          <div class="step-info">
+            <div class="step-title">3. Endpoint Testing</div>
+            <div class="step-desc">MCP, APIs & Claims</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 1: CLIENT REGISTRATION -->
+      <div class="tab-content active" id="view-step-1">
+        <!-- Explainer Card -->
+        <div class="explainer-card">
+          <div class="explainer-title">
+            <svg class="icon-mono" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>Why does Client Registration have to be done first?</span>
+          </div>
+          <div>
+            OAuth 2.1 strictly requires the Authorization Server (Apigee) to know client identity, redirect URIs, and allowed scopes before any authorization code or token can be issued.
+          </div>
+          <ul class="explainer-list">
+            <li><strong>Option A: Dynamic Client Registration (DCR - RFC 7591)</strong> (Recommended): Automatically registers this single-page app in Apigee with a single click.</li>
+            <li><strong>Option B: Client Identity Metadata Document (CIMD)</strong>: In modern OAuth 2.1 / MCP, the client ID is a URL hosting client metadata. Apigee fetches this document on-demand without prior registration.</li>
+            <li><strong>Option C: Existing App Credentials</strong>: If you already configured a Developer App in the Apigee console, enter its Client ID here.</li>
+          </ul>
+        </div>
+
+        <!-- Registered Success Banner (shown if client registered) -->
+        <div class="success-banner" id="client-registered-banner" style="display: none;">
+          <div class="success-banner-info">
+            <span style="font-weight: 600;">Client Registered:</span>
+            <code id="client-registered-id-label" style="font-family: var(--font-mono); color: var(--text-main);"></code>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-primary btn-sm" id="btn-goto-step-2">Proceed to Step 2: User Flows & Sign In &rarr;</button>
+            <button class="btn btn-secondary btn-sm" id="btn-re-register">Change / Re-register</button>
+          </div>
+        </div>
+
+        <!-- Registration Workarea -->
+        <div class="card" id="client-registration-workarea">
+          <div class="card-title">
+            <span>Choose Registration Method</span>
+          </div>
+
+          <!-- Registration Mode Selector -->
+          <div class="reg-mode-nav">
+            <button class="reg-mode-btn active" data-reg="dcr">Dynamic Registration (DCR - 1-Click)</button>
+            <button class="reg-mode-btn" data-reg="cimd">Client Identity Document (CIMD)</button>
+            <button class="reg-mode-btn" data-reg="manual">Existing Credentials</button>
+          </div>
+
+          <!-- Option A: DCR -->
+          <div class="reg-pane active" id="pane-reg-dcr">
+            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
+              Sends an RFC 7591 registration request to <code>/register</code>. Apigee dynamically stores the client in KVM <code>OAuthClients</code> with your redirect URI and returns your <code>client_id</code>.
+            </p>
+
+            <div class="btn-group" style="margin-bottom: 14px;">
+              <button class="btn btn-primary" id="btn-execute-dcr"><svg class="icon-mono" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg> Register Client App in Apigee (1-Click)</button>
+              <button class="btn btn-secondary btn-sm" id="btn-toggle-dcr-payload">Edit Registration Payload JSON</button>
+            </div>
+
+            <div id="dcr-payload-container" style="display: none; margin-bottom: 12px;">
+              <label>DCR Request Payload (RFC 7591)</label>
+              <textarea id="dcr-payload-editor" rows="6"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Registration Response</label>
+              <pre class="code-box" id="dcr-response-box">// Click "Register Client App" to register dynamically</pre>
+            </div>
+          </div>
+
+          <!-- Option B: CIMD -->
+          <div class="reg-pane" id="pane-reg-cimd">
+            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
+              <strong>Client Identity Metadata Document (CIMD)</strong> is an OAuth 2.1 / MCP specification. Instead of registering upfront, the client sets its <code>client_id</code> to a public HTTPS URL. Apigee fetches the metadata document on-the-fly to discover redirect URIs, client names, and keys.
+            </p>
+
+            <div class="form-group">
+              <label for="cimd-url-input">CIMD Metadata Document URL</label>
+              <input type="url" id="cimd-url-input" placeholder="https://client.example.com/oauth-client.json">
+            </div>
+
+            <div class="btn-group" style="margin-top: 10px;">
+              <button class="btn btn-primary" id="btn-activate-cimd">Set CIMD Client ID</button>
+              <button class="btn btn-secondary btn-sm" id="btn-sample-cimd">Use Sample CIMD URL</button>
+            </div>
+          </div>
+
+          <!-- Option C: Manual / Existing Credentials -->
+          <div class="reg-pane" id="pane-reg-manual">
+            <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 14px;">
+              If you have already configured a Developer App in the Apigee management console, paste the consumer key and optional secret below.
+            </p>
+
+            <div class="form-group">
+              <label for="manual-client-id">Consumer Key / Client ID</label>
+              <input type="text" id="manual-client-id" placeholder="e.g. 8xV...aB2">
+            </div>
+
+            <div class="form-group">
+              <label for="manual-client-secret">Consumer Secret / Client Secret (Optional)</label>
+              <input type="password" id="manual-client-secret" placeholder="Optional for public PKCE clients">
+            </div>
+
+            <div class="btn-group" style="margin-top: 10px;">
+              <button class="btn btn-primary" id="btn-apply-manual-client">Apply Existing Credentials</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: USER FLOWS & AUTHENTICATION -->
+      <div class="tab-content" id="view-step-2">
+        <!-- Locked Banner if Step 1 not complete -->
+        <div class="locked-banner" id="step-2-locked-banner" style="display: none;">
+          <div class="locked-banner-icon"><svg class="icon-mono" width="22" height="22" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+          <div class="locked-banner-text">
+            <h4>Step 1 Required: Client Not Registered</h4>
+            <p>Please register or configure a Client ID in Step 1 before testing user flows or authenticating.</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-back-to-step-1" style="margin-left: auto;">Go to Step 1</button>
+        </div>
+
+        <div id="step-2-content">
+          <!-- Explainer Card -->
+          <div class="explainer-card">
+            <div class="explainer-title">
+              <svg class="icon-mono" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              <span>Why User Flows & PKCE Authentication?</span>
+            </div>
+            <div>
+              Apigee acts as the <strong>Identity Provider (IdP)</strong>, maintaining user accounts as Apigee Developer entities.
+            </div>
+            <ul class="explainer-list">
+              <li><strong>User Flows</strong>: Before authenticating, create an end-user account (<code>/register-user</code>) and optionally set up MFA (<code>/mfa-setup</code>).</li>
+              <li><strong>Authorization Code with PKCE (RFC 7636)</strong>: OAuth 2.1 prohibits client secrets in single-page apps. A cryptographic <code>code_verifier</code> and SHA-256 challenge (PKCE) protect the authorization code from interception.</li>
+            </ul>
+          </div>
+
+          <!-- Section A: Identity & Self-Service User Flows -->
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-title">
+              <span>Self-Service User Flows (Apigee IdP)</span>
+              <span class="badge">Developer Accounts</span>
+            </div>
+
+            <div class="user-flows-grid">
+              <div class="user-flow-card">
+                <div>
+                  <div class="user-flow-card-header">
+                    <span class="user-flow-card-icon"><svg class="icon-mono" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg></span>
+                    <span class="user-flow-card-title">Register User</span>
+                  </div>
+                  <div class="user-flow-card-desc">Create a new end-user account stored in Apigee Developers directory.</div>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-block" id="btn-action-register">Open /register-user</button>
+              </div>
+
+              <div class="user-flow-card">
+                <div>
+                  <div class="user-flow-card-header">
+                    <span class="user-flow-card-icon"><svg class="icon-mono" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></span>
+                    <span class="user-flow-card-title">Setup MFA</span>
+                  </div>
+                  <div class="user-flow-card-desc">Configure RFC 6238 TOTP authenticator app (Aegis, Google Auth).</div>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-block" id="btn-action-mfa">Open /mfa-setup</button>
+              </div>
+
+              <div class="user-flow-card">
+                <div>
+                  <div class="user-flow-card-header">
+                    <span class="user-flow-card-icon"><svg class="icon-mono" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"></circle><path d="m21 2-9.6 9.6"></path><path d="m15.5 7.5 3 3L22 7l-3-3"></path></svg></span>
+                    <span class="user-flow-card-title">Reset Password</span>
+                  </div>
+                  <div class="user-flow-card-desc">Verify existing credentials and update password hash.</div>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-block" id="btn-action-reset">Open /reset-password</button>
+              </div>
+
+              <div class="user-flow-card">
+                <div>
+                  <div class="user-flow-card-header">
+                    <span class="user-flow-card-icon"><svg class="icon-mono" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></span>
+                    <span class="user-flow-card-title">Delete Account</span>
+                  </div>
+                  <div class="user-flow-card-desc">Remove developer account and associated password secrets.</div>
+                </div>
+                <button class="btn btn-secondary btn-sm btn-block" id="btn-action-delete">Open /delete-account</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section B: Sign In & Token Grants -->
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-title">
+              <span>Authentication & Grants</span>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-primary" id="btn-start-pkce-login"><svg class="icon-mono" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg> Sign In with Apigee OIDC (PKCE)</button>
+              <button class="btn btn-secondary" id="btn-client-credentials">Client Credentials Grant</button>
+              <button class="btn btn-secondary" id="btn-refresh-token">Refresh Token</button>
+              <button class="btn btn-danger btn-sm" id="btn-revoke-token">Revoke Tokens</button>
+            </div>
+          </div>
+
+          <!-- Section C: Session Tokens -->
+          <div class="card">
+            <div class="card-title">
+              <span>Active Session Tokens</span>
+              <div class="btn-group">
+                <button class="btn btn-secondary btn-sm" id="btn-copy-access-token">Copy Access Token</button>
+                <button class="btn btn-secondary btn-sm" id="btn-introspect-token">Introspect (/introspect)</button>
+              </div>
+            </div>
+
+            <!-- Token Active Banner -->
+            <div class="success-banner" id="tokens-active-banner" style="display: none; margin-bottom: 12px;">
+              <div class="success-banner-info">
+                <span style="font-weight: 600;">Tokens Active!</span>
+                <span style="color: var(--text-dim); font-size: 11px;">Access token and ID token acquired.</span>
+              </div>
+              <button class="btn btn-primary btn-sm" id="btn-goto-step-3">Proceed to Step 3: Endpoint & Authorization Testing &rarr;</button>
+            </div>
+
+            <div class="form-group">
+              <label>Access Token (Bearer)</label>
+              <textarea id="display-access-token" rows="3" readonly placeholder="Sign in above to acquire an access token"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>ID Token (OIDC Claims)</label>
+              <textarea id="display-id-token" rows="3" readonly placeholder="No ID token received"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Refresh Token</label>
+              <input type="text" id="display-refresh-token" readonly placeholder="No refresh token">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: ENDPOINT & AUTHORIZATION TESTING -->
+      <div class="tab-content" id="view-step-3">
+        <!-- Locked Banner if No Tokens -->
+        <div class="locked-banner" id="step-3-locked-banner" style="display: none;">
+          <div class="locked-banner-icon"><svg class="icon-mono" width="22" height="22" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+          <div class="locked-banner-text">
+            <h4>No Active Tokens</h4>
+            <p>You can still test 401 Unauthorized rejection, or sign in in Step 2 to obtain a Bearer token.</p>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-back-to-step-2" style="margin-left: auto;">Go to Step 2 (Sign In)</button>
+        </div>
+
+        <!-- Explainer Card -->
+        <div class="explainer-card">
+          <div class="explainer-title">
+            <svg class="icon-mono" width="14" height="14" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>Why Endpoint Testing & Token Verification?</span>
+          </div>
+          <div>
+            This tab tests backend APIs and MCP tools protected by the <code>auth-oauth-verify</code> feature template.
+          </div>
+          <ul class="explainer-list">
+            <li><strong>Bearer Token</strong>: Verifies that valid access tokens with appropriate scopes allow authorized access (200 OK).</li>
+            <li><strong>None (401 Check)</strong>: Verifies that unauthenticated requests are properly rejected by Apigee with <code>401 Unauthorized</code>.</li>
+            <li><strong>API Key</strong>: Verifies fallback API Key authentication if enabled.</li>
+          </ul>
+        </div>
+
+        <!-- Subtabs: API & MCP Tester vs Claims / UserInfo -->
+        <div class="params-headers-body-nav" style="margin-bottom: 16px;">
+          <button class="subtab-btn active" id="subtab-btn-tester" data-target="tester-workspace">API & MCP Endpoint Tester</button>
+          <button class="subtab-btn" id="subtab-btn-claims" data-target="claims-workspace">Decoded Claims & /userinfo</button>
+        </div>
+
+        <!-- Sub-Workspace 1: API & MCP Tester -->
+        <div id="tester-workspace">
+          <div class="endpoint-tester-grid">
+            <!-- Targets List -->
+            <div>
+              <div class="card">
+                <div class="card-title">
+                  <span>Target Endpoints</span>
+                  <button class="btn btn-secondary btn-sm" id="btn-add-custom-endpoint">+ Add</button>
+                </div>
+                <div class="endpoint-list" id="endpoints-list-container"></div>
+              </div>
+            </div>
+
+            <!-- Request Workspace -->
+            <div>
+              <div class="card" style="margin-bottom: 16px;">
+                <div class="card-title">
+                  <span>HTTP Request</span>
+                </div>
+
+                <div class="request-bar">
+                  <select id="req-method" class="method-select">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                    <option value="PATCH">PATCH</option>
+                  </select>
+                  <input type="text" id="req-url" class="url-input" placeholder="https://api.example.com/mcp">
+                  <button class="btn btn-primary" id="btn-send-request">Send</button>
+                </div>
+
+                <div class="form-group" style="display: flex; gap: 14px; align-items: center; margin-bottom: 10px;">
+                  <label style="margin: 0;">Auth Header:</label>
+                  <label style="display: inline-flex; align-items: center; gap: 5px; font-weight: normal; text-transform: none; cursor: pointer; margin: 0; color: var(--text-muted);">
+                    <input type="radio" name="req-auth-mode" value="bearer" checked style="width: auto;">
+                    Bearer Token
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 5px; font-weight: normal; text-transform: none; cursor: pointer; margin: 0; color: var(--text-muted);">
+                    <input type="radio" name="req-auth-mode" value="apikey" style="width: auto;">
+                    API Key
+                  </label>
+                  <label style="display: inline-flex; align-items: center; gap: 5px; font-weight: normal; text-transform: none; cursor: pointer; margin: 0; color: var(--text-muted);">
+                    <input type="radio" name="req-auth-mode" value="none" style="width: auto;">
+                    None (401 Check)
+                  </label>
+                </div>
+
+                <div class="params-headers-body-nav">
+                  <button class="subtab-btn active" data-subtab="subtab-headers">Headers</button>
+                  <button class="subtab-btn" data-subtab="subtab-body">Body</button>
+                </div>
+
+                <div id="subtab-headers" class="subtab-content">
+                  <textarea id="req-headers" rows="3" placeholder="Accept: application/json"></textarea>
+                </div>
+
+                <div id="subtab-body" class="subtab-content" style="display: none;">
+                  <textarea id="req-body" rows="5" placeholder="{ &#34;jsonrpc&#34;: &#34;2.0&#34;, &#34;method&#34;: &#34;tools/list&#34;, &#34;id&#34;: 1 }"></textarea>
+                </div>
+              </div>
+
+              <!-- Response Panel -->
+              <div class="card">
+                <div class="card-title">
+                  <span>Response</span>
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <span id="res-status-badge" class="badge">Idle</span>
+                    <span id="res-time-badge" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">0 ms</span>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label>Response Headers</label>
+                  <pre class="code-box" id="res-headers-box" style="max-height: 100px;">// Response headers</pre>
+                </div>
+
+                <div class="form-group">
+                  <label>Response Body</label>
+                  <pre class="code-box" id="res-body-box" style="max-height: 320px;">// Send a request to view response</pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Workspace 2: Claims & UserInfo -->
+        <div id="claims-workspace" style="display: none;">
+          <div class="card" style="margin-bottom: 16px;">
+            <div class="card-title">
+              <span>User Profile (/userinfo)</span>
+              <button class="btn btn-secondary btn-sm" id="btn-fetch-userinfo">Call /userinfo Endpoint</button>
+            </div>
+            <pre class="code-box" id="userinfo-response-box">// User profile claims from /userinfo will appear here</pre>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span>Decoded Token Claims</span>
+              <span class="badge" id="badge-token-type">JWT</span>
+            </div>
+            <table class="claims-table">
+              <thead>
+                <tr>
+                  <th>Claim</th>
+                  <th>Description</th>
+                  <th>Value</th>
+                </tr>
+              </thead>
+              <tbody id="claims-table-body">
+                <tr>
+                  <td colspan="3" style="text-align: center; color: var(--text-dim); padding: 20px;">No token decoded</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
+

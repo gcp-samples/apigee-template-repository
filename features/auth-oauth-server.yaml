@@ -2,13 +2,15 @@
 gateway: apigee
 schemaVersion: 1.0.0
 name: auth-oauth21-server
-displayName: OAuth 2.1 Authorization Server
+displayName: OAuth 2.1 & OIDC Identity Provider
 type: feature
-description: Complete OAuth 2.1 Authorization Server supporting RESTful and MCP clients, Dynamic Client Registration (DCR - RFC 7591), Client ID Metadata Documents (CIMD), PKCE (RFC 7636), and Apigee X developer/app IDP integration.
+description: Complete OAuth 2.1 Authorization Server & OpenID Connect (OIDC) Identity Provider (IdP) supporting Apigee X developers as user store, configurable password storage (Cloud Secret Manager or KVM), client storage in KVM (OAuthClients), multi-factor authentication (authenticator apps TOTP), self-service HTML flows (sign-in, registration, password reset, delete account), Dynamic Client Registration (DCR), and PKCE.
 documentation: ""
 categories:
   - security
   - oauth2
+  - oidc
+  - identity
   - mcp
 parameters:
   - name: ISSUER_URL
@@ -39,6 +41,18 @@ parameters:
     displayName: Supported Scopes
     description: Space-separated list of OAuth scopes supported by this server
     default: mcp openid profile email read write
+  - name: PASSWORD_STORAGE
+    displayName: Password Storage Backend
+    description: Backend used to store user passwords ('kvm' or 'secret-manager')
+    default: kvm
+  - name: ENABLE_MFA
+    displayName: Enable Multi-Factor Authentication
+    description: Enforce TOTP multi-factor authentication (authenticator apps) for user sign-in ('true' or 'false')
+    default: "false"
+  - name: MFA_ISSUER_NAME
+    displayName: MFA Issuer Name
+    description: Issuer label displayed in authenticator apps (e.g. Google Authenticator)
+    default: ApigeeIdP
 endpoints:
   - name: oauth
     basePath: /
@@ -80,11 +94,8 @@ endpoints:
         condition: ((proxy.pathsuffix MatchesPath "/register") or (proxy.pathsuffix MatchesPath "/register-client")) and (request.verb = "POST")
         steps:
           - name: JS-ProcessDCRRequest
-          - name: SC-CreateDeveloper
-            condition: dcr_create_developer = "true"
-          - name: SC-CreateApp
-            condition: dcr_create_app = "true"
-          - name: JS-ProcessDCRResponse
+          - name: KVM-PutOAuthClient
+            condition: dcr_success = "true"
           - name: PC-StoreClient
             condition: dcr_success = "true"
           - name: AM-RegisterSuccess
@@ -92,7 +103,7 @@ endpoints:
           - name: AM-RegisterFailure
             condition: dcr_success = "false"
 
-      - name: GET Authorize
+      - name: GET Authorize (Sign-In Page)
         mode: Response
         condition: (proxy.pathsuffix MatchesPath "/authorize") and (request.verb = "GET")
         steps:
@@ -103,12 +114,14 @@ endpoints:
             condition: (is_cimd = "true") and (cimd_doc_cached = null)
           - name: LC-LookupClient
             condition: is_cimd = "false"
-          - name: SC-GetApigeeApp
+          - name: KVM-GetOAuthClient
             condition: (is_cimd = "false") and (client_record_cached = null) and (client_id_to_lookup != null)
+          - name: SC-GetApigeeApp
+            condition: (is_cimd = "false") and (client_record_cached = null) and (kvm_client_record = null) and (client_id_to_lookup != null)
           - name: JS-ValidateAuthorize
           - name: AM-AuthorizeForm
 
-      - name: POST Authorize / Consent
+      - name: POST Authorize (Sign-In and MFA Authentication)
         mode: Response
         condition: (proxy.pathsuffix MatchesPath "/authorize") and (request.verb = "POST")
         steps:
@@ -119,17 +132,135 @@ endpoints:
             condition: (is_cimd = "true") and (cimd_doc_cached = null)
           - name: LC-LookupClient
             condition: is_cimd = "false"
-          - name: SC-GetApigeeApp
+          - name: KVM-GetOAuthClient
             condition: (is_cimd = "false") and (client_record_cached = null) and (client_id_to_lookup != null)
+          - name: SC-GetApigeeApp
+            condition: (is_cimd = "false") and (client_record_cached = null) and (kvm_client_record = null) and (client_id_to_lookup != null)
           - name: JS-ValidateAuthorize
-          - name: JS-AuthenticateAndIssueCode
+          - name: JS-PrepUserLookup
             condition: authorize_valid = "true"
+          - name: SC-GetDeveloperUser
+            condition: (authorize_valid = "true") and (auth_user_email != null)
+          - name: KVM-GetPassword
+            condition: (authorize_valid = "true") and (password_storage_type = "kvm") and (getDevUserRes.status.code = 200)
+          - name: SC-GetSecretManagerPassword
+            condition: (authorize_valid = "true") and (password_storage_type = "secret-manager") and (getDevUserRes.status.code = 200)
+          - name: JS-VerifyUserCredentials
+            condition: authorize_valid = "true"
+          - name: AM-MFAChallengeForm
+            condition: mfa_challenge_needed = "true"
           - name: PC-StoreCode
             condition: (authorize_valid = "true") and (auth_success = "true")
           - name: AM-AuthorizeRedirect
             condition: (authorize_valid = "true") and (auth_success = "true")
           - name: AM-AuthorizeErrorResponse
-            condition: (authorize_valid = "false") or (auth_success = "false")
+            condition: ((authorize_valid = "false") or (auth_success = "false")) and (mfa_challenge_needed != "true")
+
+      - name: GET Register User Page
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/register-user") and (request.verb = "GET")
+        steps:
+          - name: JS-ExtractRegisterParams
+          - name: AM-RegisterUserForm
+
+      - name: POST Register User
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/register-user") and (request.verb = "POST")
+        steps:
+          - name: JS-ProcessRegisterUserRequest
+          - name: SC-CheckDeveloperExists
+            condition: reg_syntax_valid = "true"
+          - name: JS-ValidateNewUser
+            condition: reg_syntax_valid = "true"
+          - name: SC-CreateDeveloperUser
+            condition: reg_valid = "true"
+          - name: KVM-PutPassword
+            condition: (reg_valid = "true") and (password_storage_type = "kvm")
+          - name: SC-CreateSecretManagerSecret
+            condition: (reg_valid = "true") and (password_storage_type = "secret-manager")
+          - name: SC-AddSecretManagerVersion
+            condition: (reg_valid = "true") and (password_storage_type = "secret-manager")
+          - name: JS-PrepareRegisterResponse
+          - name: AM-MFASetupPage
+            condition: (reg_valid = "true") and (reg_mfa_enabled = "true")
+          - name: AM-RegisterUserSuccess
+            condition: (reg_valid = "true") and (reg_mfa_enabled = "false")
+          - name: AM-RegisterUserFailure
+            condition: reg_valid = "false"
+
+      - name: GET or POST MFA Setup
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/mfa-setup") and ((request.verb = "GET") or (request.verb = "POST"))
+        steps:
+          - name: JS-ProcessMFASetup
+          - name: SC-GetDeveloperUser
+            condition: (mfa_verify_action = "confirm") and (auth_user_email != null) and (auth_user_email != "")
+          - name: JS-VerifyMFACodeAndActivate
+            condition: mfa_verify_action = "confirm"
+          - name: SC-UpdateDeveloperUser
+            condition: mfa_confirmed = "true"
+          - name: AM-MFASetupPage
+            condition: (request.verb = "GET") or (mfa_confirmed != "true")
+          - name: AM-MFAConfirmedPage
+            condition: mfa_confirmed = "true"
+
+      - name: GET Reset Password Page
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/reset-password") and (request.verb = "GET")
+        steps:
+          - name: JS-ExtractResetParams
+          - name: AM-ResetPasswordForm
+
+      - name: POST Reset Password
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/reset-password") and (request.verb = "POST")
+        steps:
+          - name: JS-ProcessResetRequest
+          - name: SC-GetDeveloperUser
+            condition: reset_syntax_valid = "true"
+          - name: KVM-GetPassword
+            condition: (reset_syntax_valid = "true") and (password_storage_type = "kvm") and (getDevUserRes.status.code = 200)
+          - name: SC-GetSecretManagerPassword
+            condition: (reset_syntax_valid = "true") and (password_storage_type = "secret-manager") and (getDevUserRes.status.code = 200)
+          - name: JS-VerifyAndHashNewPassword
+            condition: reset_syntax_valid = "true"
+          - name: KVM-PutPassword
+            condition: (reset_valid = "true") and (password_storage_type = "kvm")
+          - name: SC-AddSecretManagerVersion
+            condition: (reset_valid = "true") and (password_storage_type = "secret-manager")
+          - name: AM-ResetPasswordSuccess
+            condition: reset_valid = "true"
+          - name: AM-ResetPasswordFailure
+            condition: reset_valid = "false"
+
+      - name: GET Delete Account Page
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/delete-account") and (request.verb = "GET")
+        steps:
+          - name: JS-ExtractDeleteParams
+          - name: AM-DeleteAccountForm
+
+      - name: POST Delete Account
+        mode: Response
+        condition: (proxy.pathsuffix MatchesPath "/delete-account") and (request.verb = "POST")
+        steps:
+          - name: JS-ProcessDeleteRequest
+          - name: SC-GetDeveloperUser
+            condition: delete_syntax_valid = "true"
+          - name: KVM-GetPassword
+            condition: (delete_syntax_valid = "true") and (password_storage_type = "kvm") and (getDevUserRes.status.code = 200)
+          - name: SC-GetSecretManagerPassword
+            condition: (delete_syntax_valid = "true") and (password_storage_type = "secret-manager") and (getDevUserRes.status.code = 200)
+          - name: JS-VerifyDeleteAccount
+            condition: delete_syntax_valid = "true"
+          - name: SC-DeleteDeveloperUser
+            condition: delete_valid = "true"
+          - name: SC-DeleteSecretManagerSecret
+            condition: (delete_valid = "true") and (password_storage_type = "secret-manager")
+          - name: AM-DeleteAccountSuccess
+            condition: delete_valid = "true"
+          - name: AM-DeleteAccountFailure
+            condition: delete_valid = "false"
 
       - name: POST Token
         mode: Response
@@ -146,8 +277,10 @@ endpoints:
             condition: (token_grant_type = "client_credentials") and (is_cimd = "true") and (cimd_doc_cached = null)
           - name: LC-LookupClient
             condition: (token_grant_type = "client_credentials") and (is_cimd = "false")
-          - name: SC-GetApigeeApp
+          - name: KVM-GetOAuthClient
             condition: (token_grant_type = "client_credentials") and (is_cimd = "false") and (client_record_cached = null) and (client_id_to_lookup != null)
+          - name: SC-GetApigeeApp
+            condition: (token_grant_type = "client_credentials") and (is_cimd = "false") and (client_record_cached = null) and (kvm_client_record = null) and (client_id_to_lookup != null)
           - name: JS-VerifyTokenRequest
           - name: IC-InvalidateCode
             condition: (token_grant_type = "authorization_code") and (token_generation_allowed = "true")
@@ -269,6 +402,18 @@ policies:
           var supportedScopes = (context.getVariable("SUPPORTED_SCOPES") || "mcp openid profile email read write").trim();
           context.setVariable("supported_scopes", supportedScopes);
 
+          var pwdStorage = (context.getVariable("PASSWORD_STORAGE") || "kvm").trim().toLowerCase();
+          if (pwdStorage !== "secret-manager") {
+            pwdStorage = "kvm";
+          }
+          context.setVariable("password_storage_type", pwdStorage);
+
+          var enableMfa = (context.getVariable("ENABLE_MFA") || "false").trim().toLowerCase();
+          context.setVariable("system_mfa_enabled", enableMfa === "true" ? "true" : "false");
+
+          var mfaIssuer = (context.getVariable("MFA_ISSUER_NAME") || "ApigeeIdP").trim();
+          context.setVariable("mfa_issuer_name", mfaIssuer);
+
   - name: JS-BuildProtectedResourceMetadata
     type: Javascript
     content:
@@ -358,11 +503,29 @@ policies:
             "userinfo_endpoint": issuer + "/userinfo",
             "jwks_uri": issuer + "/jwks.json",
             "registration_endpoint": issuer + "/register",
+            "user_registration_endpoint": issuer + "/register-user",
+            "password_reset_endpoint": issuer + "/reset-password",
+            "delete_account_endpoint": issuer + "/delete-account",
+            "mfa_setup_endpoint": issuer + "/mfa-setup",
             "scopes_supported": scopes,
             "response_types_supported": ["code"],
             "grant_types_supported": ["authorization_code", "refresh_token", "client_credentials"],
             "subject_types_supported": ["public"],
             "id_token_signing_alg_values_supported": ["HS256"],
+            "claims_supported": [
+              "sub",
+              "iss",
+              "aud",
+              "exp",
+              "iat",
+              "auth_time",
+              "name",
+              "given_name",
+              "family_name",
+              "preferred_username",
+              "email",
+              "email_verified"
+            ],
             "code_challenge_methods_supported": ["S256", "plain"]
           };
 
@@ -419,9 +582,6 @@ policies:
               throw new Error("Missing required 'redirect_uris' array.");
             }
 
-            var devEmail = context.getVariable("default_dev_email");
-            var apiProduct = context.getVariable("default_api_product");
-
             function randHex(len) {
               var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
               var str = "";
@@ -431,197 +591,55 @@ policies:
               return str;
             }
 
-            var safeName = clientName.toLowerCase().replace(/[^a-z0-9_-]/g, "_").substring(0, 20);
-            var appName = "app_" + safeName + "_" + randHex(8);
+            var clientId = "client_" + randHex(16);
+            var clientSecret = "sec_" + randHex(32);
 
-            context.setVariable("dcr_client_name", clientName);
-            context.setVariable("dcr_dev_email", devEmail);
-            context.setVariable("dcr_dev_username", "mcp_dev_" + randHex(6));
-            context.setVariable("dcr_dev_first_name", "MCP");
-            context.setVariable("dcr_dev_last_name", "Developer");
-            context.setVariable("dcr_app_name", appName);
-            context.setVariable("dcr_primary_redirect_uri", redirectUris[0]);
-            context.setVariable("dcr_redirect_uris_json", JSON.stringify(redirectUris));
-            context.setVariable("dcr_grant_types_json", JSON.stringify(body.grant_types || ["authorization_code", "refresh_token", "client_credentials"]));
-            context.setVariable("dcr_scope", body.scope || context.getVariable("supported_scopes") || "mcp openid profile email");
+            var grantTypes = body.grant_types || ["authorization_code", "refresh_token", "client_credentials"];
+            var responseTypes = body.response_types || ["code"];
+            var scope = body.scope || context.getVariable("supported_scopes") || "mcp openid profile email";
+            var tokenEndpointAuthMethod = body.token_endpoint_auth_method || "client_secret_post";
 
-            var appPayload = {
-              "name": appName,
-              "callbackUrl": redirectUris[0],
-              "attributes": [
-                { "name": "redirect_uris", "value": JSON.stringify(redirectUris) },
-                { "name": "grant_types", "value": JSON.stringify(body.grant_types || ["authorization_code", "refresh_token", "client_credentials"]) },
-                { "name": "scope", "value": body.scope || "mcp openid profile email" }
-              ]
+            var clientRecord = {
+              "client_id": clientId,
+              "client_secret": clientSecret,
+              "client_name": clientName,
+              "redirect_uris": redirectUris,
+              "grant_types": grantTypes,
+              "response_types": responseTypes,
+              "scope": scope,
+              "token_endpoint_auth_method": tokenEndpointAuthMethod,
+              "client_id_issued_at": Math.floor(Date.now() / 1000)
             };
 
-            if (apiProduct) {
-              appPayload.apiProducts = [apiProduct];
-            }
-
-            context.setVariable("dcr_create_app_payload", JSON.stringify(appPayload));
-            context.setVariable("dcr_create_developer", "true");
-            context.setVariable("dcr_create_app", "true");
-            context.setVariable("dcr_raw_request", JSON.stringify(body));
+            var recordData = JSON.stringify(clientRecord);
+            context.setVariable("client_id_to_lookup", clientId);
+            context.setVariable("client_record_data", recordData);
+            context.setVariable("dcr_response_json", JSON.stringify(clientRecord, null, 2));
+            context.setVariable("dcr_success", "true");
             context.setVariable("dcr_error", "");
-
           } catch (e) {
-            context.setVariable("dcr_create_developer", "false");
-            context.setVariable("dcr_create_app", "false");
             context.setVariable("dcr_success", "false");
             context.setVariable("dcr_error", "invalid_client_metadata");
             context.setVariable("dcr_error_description", e.message || String(e));
           }
 
-  - name: SC-CreateDeveloper
-    type: ServiceCallout
+  - name: KVM-PutOAuthClient
+    type: KeyValueMapOperations
     content:
-      ServiceCallout:
+      KeyValueMapOperations:
         metadata:
-          continueOnError: "true"
-          enabled: "true"
-          name: SC-CreateDeveloper
-        DisplayName: SC-CreateDeveloper
-        Properties: {}
-        Request:
-          metadata:
-            clearPayload: "true"
-            variable: createDevRequest
-          IgnoreUnresolvedVariables: "true"
-          Set:
-            Verb: POST
-            Headers:
-              Header:
+          name: KVM-PutOAuthClient
+          mapIdentifier: OAuthClients
+        Put:
+          - metadata:
+              override: "true"
+            Key:
+              Parameter:
                 - metadata:
-                    name: Content-Type
-                  _text: application/json
-            Payload:
-              metadata:
-                contentType: application/json
-              _text: |
-                {
-                  "email": "{dcr_dev_email}",
-                  "firstName": "{dcr_dev_first_name}",
-                  "lastName": "{dcr_dev_last_name}",
-                  "userName": "{dcr_dev_username}"
-                }
-        Response: createDevResponse
-        HTTPTargetConnection:
-          Properties: {}
-          URL: "https://{apigee_api_host}/organizations/{organization.name}/developers"
-          Authentication:
-            GoogleAccessToken:
-              Scopes:
-                Scope: https://www.googleapis.com/auth/cloud-platform
-
-  - name: SC-CreateApp
-    type: ServiceCallout
-    content:
-      ServiceCallout:
-        metadata:
-          continueOnError: "true"
-          enabled: "true"
-          name: SC-CreateApp
-        DisplayName: SC-CreateApp
-        Properties: {}
-        Request:
-          metadata:
-            clearPayload: "true"
-            variable: createAppRequest
-          IgnoreUnresolvedVariables: "true"
-          Set:
-            Verb: POST
-            Headers:
-              Header:
-                - metadata:
-                    name: Content-Type
-                  _text: application/json
-            Payload:
-              metadata:
-                contentType: application/json
-              _text: "{dcr_create_app_payload}"
-        Response: createAppResponse
-        HTTPTargetConnection:
-          Properties: {}
-          URL: "https://{apigee_api_host}/organizations/{organization.name}/developers/{dcr_dev_email}/apps"
-          Authentication:
-            GoogleAccessToken:
-              Scopes:
-                Scope: https://www.googleapis.com/auth/cloud-platform
-
-  - name: JS-ProcessDCRResponse
-    type: Javascript
-    content:
-      Javascript:
-        metadata:
-          continueOnError: "false"
-          enabled: "true"
-          timeLimit: "200"
-          name: JS-ProcessDCRResponse
-        DisplayName: JS-ProcessDCRResponse
-        Properties: {}
-        Source: |
-          try {
-            if (context.getVariable("dcr_error")) {
-              context.setVariable("dcr_success", "false");
-            } else {
-              function randHex(len) {
-                var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-                var str = "";
-                for (var i = 0; i < len; i++) {
-                  str += chars.charAt(Math.floor(Math.random() * chars.length));
-                }
-                return str;
-              }
-
-              var clientId = "";
-              var clientSecret = "";
-
-              var appResContent = context.getVariable("createAppResponse.content");
-              if (appResContent) {
-                try {
-                  var appRes = JSON.parse(appResContent);
-                  if (appRes.credentials && appRes.credentials.length > 0) {
-                    clientId = appRes.credentials[0].consumerKey;
-                    clientSecret = appRes.credentials[0].consumerSecret;
-                  }
-                } catch (e) {
-                  // Fallback if parsing fails
-                }
-              }
-
-              // Self-contained fallback if Apigee Admin API credentials were not returned
-              if (!clientId) {
-                clientId = "mcp_client_" + randHex(16);
-                clientSecret = "mcp_sec_" + randHex(32);
-              }
-
-              var rawReq = JSON.parse(context.getVariable("dcr_raw_request") || "{}");
-              var redirectUris = JSON.parse(context.getVariable("dcr_redirect_uris_json") || "[]");
-              var grantTypes = JSON.parse(context.getVariable("dcr_grant_types_json") || '["authorization_code", "refresh_token", "client_credentials"]');
-
-              var clientRecord = {
-                "client_id": clientId,
-                "client_secret": clientSecret,
-                "client_name": context.getVariable("dcr_client_name"),
-                "redirect_uris": redirectUris,
-                "grant_types": grantTypes,
-                "response_types": rawReq.response_types || ["code"],
-                "scope": context.getVariable("dcr_scope"),
-                "token_endpoint_auth_method": rawReq.token_endpoint_auth_method || "client_secret_post",
-                "client_id_issued_at": Math.floor(Date.now() / 1000)
-              };
-
-              context.setVariable("client_id_to_lookup", clientId);
-              context.setVariable("client_record_data", JSON.stringify(clientRecord));
-              context.setVariable("dcr_success", "true");
-              context.setVariable("dcr_response_json", JSON.stringify(clientRecord, null, 2));
-            }
-          } catch (err) {
-            context.setVariable("dcr_success", "false");
-            context.setVariable("dcr_error", "server_error");
-            context.setVariable("dcr_error_description", "Failed to process dynamic client registration: " + err);
-          }
+                    ref: client_id_to_lookup
+            Value:
+              - metadata:
+                  ref: client_record_data
 
   - name: PC-StoreClient
     type: PopulateCache
@@ -669,7 +687,6 @@ policies:
                 "error": "{dcr_error}",
                 "error_description": "{dcr_error_description}"
               }
-
   - name: JS-ExtractAuthorizeParams
     type: Javascript
     content:
@@ -682,6 +699,7 @@ policies:
         DisplayName: JS-ExtractAuthorizeParams
         Properties: {}
         Source: |
+          (function() {
           var verb = context.getVariable("request.verb");
           var clientId, redirectUri, responseType, scope, state, codeChallenge, codeChallengeMethod;
 
@@ -709,12 +727,11 @@ policies:
           context.setVariable("auth_client_id", clientId);
           context.setVariable("auth_redirect_uri", redirectUri);
           context.setVariable("auth_response_type", responseType);
-          context.setVariable("auth_scope", scope || "mcp");
+          context.setVariable("auth_scope", scope || "openid profile email mcp");
           context.setVariable("auth_state", state);
           context.setVariable("auth_code_challenge", codeChallenge);
           context.setVariable("auth_code_challenge_method", codeChallengeMethod || "S256");
 
-          // Determine if client_id is a Client ID Metadata Document URL (CIMD)
           if (clientId.indexOf("http://") === 0 || clientId.indexOf("https://") === 0) {
             context.setVariable("is_cimd", "true");
             var targetUrl = clientId.replace(/^https?:\/\//i, "");
@@ -727,6 +744,7 @@ policies:
             context.setVariable("cimd_client_id", "");
             context.setVariable("client_id_to_lookup", clientId);
           }
+          })();
 
   - name: LC-LookupCIMD
     type: LookupCache
@@ -780,6 +798,21 @@ policies:
             metadata:
               ref: client_id_to_lookup
         AssignTo: client_record_cached
+
+  - name: KVM-GetOAuthClient
+    type: KeyValueMapOperations
+    content:
+      KeyValueMapOperations:
+        metadata:
+          name: KVM-GetOAuthClient
+          mapIdentifier: OAuthClients
+        Get:
+          - metadata:
+              assignTo: kvm_client_record
+            Key:
+              Parameter:
+                - metadata:
+                    ref: client_id_to_lookup
 
   - name: SC-GetApigeeApp
     type: ServiceCallout
@@ -849,7 +882,6 @@ policies:
 
           if (!error) {
             if (isCimd) {
-              // Validate Client ID Metadata Document (CIMD)
               var cimdContent = context.getVariable("cimd_doc_cached") || context.getVariable("fetchCimdResponse.content");
               if (cimdContent) {
                 try {
@@ -873,12 +905,14 @@ policies:
                 }
               }
             } else {
-              // Validate Registered DCR or Apigee App client
               var clientCached = context.getVariable("client_record_cached");
+              var kvmClient = context.getVariable("kvm_client_record");
               var appRes = context.getVariable("getAppResponse.content");
-              if (clientCached) {
+              var clientRaw = clientCached || kvmClient;
+
+              if (clientRaw) {
                 try {
-                  var clientData = JSON.parse(clientCached);
+                  var clientData = JSON.parse(clientRaw);
                   clientDisplayName = clientData.client_name || clientId;
                   var uris = clientData.redirect_uris || [];
                   var matched = false;
@@ -937,42 +971,49 @@ policies:
               <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Authorize Access | OAuth 2.1</title>
+                <title>Sign In & Authorize | OpenID Connect IdP</title>
                 <style>
                   :root {
-                    --primary: #2563eb;
-                    --primary-hover: #1d4ed8;
-                    --bg: #0f172a;
-                    --card: #1e293b;
-                    --border: #334155;
-                    --text: #f8fafc;
-                    --text-muted: #94a3b8;
+                    --primary: #3b82f6;
+                    --primary-hover: #2563eb;
+                    --bg: #0b0f19;
+                    --card: #111827;
+                    --border: #1f2937;
+                    --text: #f9fafb;
+                    --text-muted: #9ca3af;
+                    --input-bg: #1f2937;
+                    --danger: #ef4444;
                   }
-                  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-                  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-                  .container { background: var(--card); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 440px; padding: 32px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5); }
-                  .badge { display: inline-block; background: rgba(37, 99, 235, 0.2); color: #60a5fa; padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
-                  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
-                  p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
-                  .scopes { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 24px; }
-                  .scopes-title { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
-                  .scope-tag { display: inline-block; background: #334155; color: #e2e8f0; font-size: 12px; padding: 2px 8px; border-radius: 6px; margin-right: 4px; margin-bottom: 4px; font-family: monospace; }
-                  .form-group { margin-bottom: 16px; }
+                  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+                  .container { background: var(--card); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 460px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+                  .badge { display: inline-flex; align-items: center; background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 20px; border: 1px solid rgba(59, 130, 246, 0.3); }
+                  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.025em; }
+                  p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .client-info { background: rgba(31, 41, 55, 0.6); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 24px; font-size: 13px; }
+                  .scopes-title { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; letter-spacing: 0.05em; }
+                  .scope-tag { display: inline-block; background: #374151; color: #e5e7eb; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-right: 4px; margin-bottom: 4px; font-family: ui-monospace, SFMono-Regular, monospace; }
+                  .form-group { margin-bottom: 18px; }
                   label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
-                  input[type="text"], input[type="password"] { width: 100%; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; color: #fff; font-size: 14px; outline: none; }
+                  input[type="text"], input[type="email"], input[type="password"] { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; }
                   input:focus { border-color: var(--primary); }
-                  .btn { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
+                  .btn { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 6px; }
                   .btn:hover { background: var(--primary-hover); }
-                  .error-banner { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+                  .links { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; font-size: 13px; text-align: center; }
+                  .links a { color: var(--primary); text-decoration: none; font-weight: 500; }
+                  .links a:hover { text-decoration: underline; }
+                  .links-sub { display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px; }
+                  .links-sub a { color: var(--text-muted); }
+                  .links-sub a:hover { color: var(--text); }
                 </style>
               </head>
               <body>
                 <div class="container">
-                  <span class="badge">OAuth 2.1 Authorization</span>
-                  <h1>Authorize Client</h1>
-                  <p><strong>{auth_client_display_name}</strong> requests access to your MCP & REST services.</p>
+                  <span class="badge">OpenID Connect IdP</span>
+                  <h1>Sign In</h1>
+                  <p>Authorize <strong>{auth_client_display_name}</strong> to access your account.</p>
 
-                  <div class="scopes">
+                  <div class="client-info">
                     <div class="scopes-title">Requested Scopes</div>
                     <div><span class="scope-tag">{auth_scope}</span></div>
                   </div>
@@ -987,22 +1028,29 @@ policies:
                     <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
 
                     <div class="form-group">
-                      <label for="username">User Identifier / Email</label>
-                      <input type="text" id="username" name="username" placeholder="user@example.com" value="mcp-user" required>
+                      <label for="username">Email Address</label>
+                      <input type="email" id="username" name="username" placeholder="user@example.com" required autofocus>
                     </div>
 
                     <div class="form-group">
-                      <label for="password">Password / Passcode</label>
-                      <input type="password" id="password" name="password" placeholder="••••••••" value="password" required>
+                      <label for="password">Password</label>
+                      <input type="password" id="password" name="password" placeholder="••••••••" required>
                     </div>
 
-                    <button type="submit" class="btn">Approve & Authorize</button>
+                    <button type="submit" class="btn">Sign In & Continue</button>
                   </form>
+
+                  <div class="links">
+                    <div>Don't have an account? <a href="/register-user?client_id={auth_client_id}&redirect_uri={auth_redirect_uri}&response_type={auth_response_type}&scope={auth_scope}&state={auth_state}&code_challenge={auth_code_challenge}&code_challenge_method={auth_code_challenge_method}">Create Account</a></div>
+                    <div class="links-sub">
+                      <a href="/reset-password?client_id={auth_client_id}&redirect_uri={auth_redirect_uri}">Forgot Password?</a>
+                      <a href="/delete-account?client_id={auth_client_id}&redirect_uri={auth_redirect_uri}">Delete Account</a>
+                    </div>
+                  </div>
                 </div>
               </body>
               </html>
-
-  - name: JS-AuthenticateAndIssueCode
+  - name: JS-PrepUserLookup
     type: Javascript
     content:
       Javascript:
@@ -1010,45 +1058,515 @@ policies:
           continueOnError: "false"
           enabled: "true"
           timeLimit: "200"
-          name: JS-AuthenticateAndIssueCode
-        DisplayName: JS-AuthenticateAndIssueCode
+          name: JS-PrepUserLookup
+        DisplayName: JS-PrepUserLookup
         Properties: {}
         Source: |
-          function randHex(len) {
-            var chars = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-            var str = "";
-            for (var i = 0; i < len; i++) {
-              str += chars.charAt(Math.floor(Math.random() * chars.length));
+          var userEmail = (context.getVariable("request.formparam.username") || "").trim();
+          context.setVariable("auth_user_email", userEmail);
+          var secretId = "pwd-" + userEmail.toLowerCase().replace(/[^a-zA-Z0-9_-]/g, "_");
+          context.setVariable("user_secret_id", secretId);
+
+  - name: SC-GetDeveloperUser
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetDeveloperUser
+        DisplayName: SC-GetDeveloperUser
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: getDevUserReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: GET
+        Response: getDevUserRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://{apigee_api_host}/organizations/{organization.name}/developers/{auth_user_email}"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: KVM-GetPassword
+    type: KeyValueMapOperations
+    content:
+      KeyValueMapOperations:
+        metadata:
+          name: KVM-GetPassword
+          mapIdentifier: UserCredentials
+        Get:
+          - metadata:
+              assignTo: private.stored_password_hash
+            Key:
+              Parameter:
+                - metadata:
+                    ref: auth_user_email
+
+  - name: SC-GetSecretManagerPassword
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetSecretManagerPassword
+        DisplayName: SC-GetSecretManagerPassword
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: getSecretReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: GET
+        Response: getSecretRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://secretmanager.googleapis.com/v1/projects/{organization.name}/secrets/{user_secret_id}/versions/latest:access"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: JS-VerifyUserCredentials
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "300"
+          name: JS-VerifyUserCredentials
+        DisplayName: JS-VerifyUserCredentials
+        Properties: {}
+        Source: |
+          (function() {
+          // --- SHA-256 implementation ---
+          function sha256(ascii) {
+            function rightRotate(value, amount) {
+              return (value >>> amount) | (value << (32 - amount));
             }
-            return str;
+            var mathPow = Math.pow;
+            var maxWord = mathPow(2, 32);
+            var lengthProperty = 'length';
+            var i, j;
+            var result = '';
+            var words = [];
+            var asciiBitLength = ascii[lengthProperty] * 8;
+            var hash = [];
+            var k = [];
+            var primeCounter = 0;
+            var isComposite = {};
+            for (var candidate = 2; primeCounter < 64; candidate++) {
+              if (!isComposite[candidate]) {
+                for (i = 0; i < 313; i += candidate) {
+                  isComposite[i] = candidate;
+                }
+                hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+                k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+              }
+            }
+            ascii += '\x80';
+            while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+            for (i = 0; i < ascii[lengthProperty]; i++) {
+              j = ascii.charCodeAt(i);
+              if (j >> 8) return;
+              words[i >> 2] |= j << ((3 - i % 4) * 8);
+            }
+            words[words[lengthProperty]] = ((asciiBitLength / maxWord) | 0);
+            words[words[lengthProperty]] = (asciiBitLength | 0);
+            for (j = 0; j < words[lengthProperty];) {
+              var w = words.slice(j, j += 16);
+              var oldHash = hash;
+              hash = hash.slice(0, 8);
+              for (i = 0; i < 64; i++) {
+                var s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+                var s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+                var ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+                var maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+                var s1h = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
+                var s0h = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
+                var t1 = (i < 16 ? w[i] : (w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0)) + hash[7] + s1h + ch + k[i];
+                var t2 = s0h + maj;
+                hash = [(t1 + t2) | 0].concat(hash);
+                hash[4] = (hash[4] + t1) | 0;
+              }
+              for (i = 0; i < 8; i++) {
+                hash[i] = (hash[i] + oldHash[i]) | 0;
+              }
+            }
+            for (i = 0; i < 8; i++) {
+              for (var b = 3; b >= 0; b--) {
+                var byteVal = (hash[i] >> (b * 8)) & 255;
+                result += ((byteVal < 16 ? '0' : '') + byteVal.toString(16));
+              }
+            }
+            return result;
           }
 
-          var username = (context.getVariable("request.formparam.username") || "mcp-user").trim();
-          var authCode = "code_" + randHex(32);
-
-          var codePayload = {
-            "client_id": context.getVariable("auth_client_id"),
-            "redirect_uri": context.getVariable("auth_redirect_uri"),
-            "scope": context.getVariable("auth_scope"),
-            "code_challenge": context.getVariable("auth_code_challenge"),
-            "code_challenge_method": context.getVariable("auth_code_challenge_method") || "S256",
-            "username": username,
-            "auth_time": Math.floor(Date.now() / 1000)
-          };
-
-          context.setVariable("auth_code", authCode);
-          context.setVariable("auth_code_data", JSON.stringify(codePayload));
-          context.setVariable("auth_success", "true");
-
-          var redirectUri = context.getVariable("auth_redirect_uri");
-          var state = context.getVariable("auth_state") || "";
-          var delimiter = redirectUri.indexOf("?") === -1 ? "?" : "&";
-          var targetLocation = redirectUri + delimiter + "code=" + encodeURIComponent(authCode);
-          if (state) {
-            targetLocation += "&state=" + encodeURIComponent(state);
+          // --- HMAC-SHA1 and TOTP implementation ---
+          function base32Decode(str) {
+            var b32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            var cleanStr = str.toUpperCase().replace(/=+$/, "");
+            var bits = 0, val = 0;
+            var out = [];
+            for (var i = 0; i < cleanStr.length; i++) {
+              var idx = b32.indexOf(cleanStr.charAt(i));
+              if (idx === -1) continue;
+              val = (val << 5) | idx;
+              bits += 5;
+              if (bits >= 8) {
+                out.push((val >>> (bits - 8)) & 255);
+                bits -= 8;
+              }
+            }
+            return out;
           }
 
-          context.setVariable("auth_redirect_location", targetLocation);
+          function sha1Block(words) {
+            var h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+            var w = new Array(80);
+            for (var i = 0; i < words.length; i += 16) {
+              for (var t = 0; t < 16; t++) w[t] = words[i + t] | 0;
+              for (var t = 16; t < 80; t++) {
+                var s = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16];
+                w[t] = (s << 1) | (s >>> 31);
+              }
+              var a = h0, b = h1, c = h2, d = h3, e = h4;
+              for (var t = 0; t < 80; t++) {
+                var f, k;
+                if (t < 20) { f = (b & c) | ((~b) & d); k = 0x5A827999; }
+                else if (t < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+                else if (t < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+                else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+                var temp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]) | 0;
+                e = d; d = c; c = (b << 30) | (b >>> 2); b = a; a = temp;
+              }
+              h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
+            }
+            return [h0, h1, h2, h3, h4];
+          }
+
+          function hmacSha1(keyBytes, msgBytes) {
+            var k = keyBytes.slice();
+            if (k.length > 64) {
+              var kw = bytesToWords(k, k.length * 8);
+              var kh = sha1Block(kw);
+              k = [];
+              for (var i = 0; i < 5; i++) {
+                for (var b = 3; b >= 0; b--) k.push((kh[i] >>> (b * 8)) & 255);
+              }
+            }
+            while (k.length < 64) k.push(0);
+            var o_key_pad = [], i_key_pad = [];
+            for (var i = 0; i < 64; i++) {
+              o_key_pad.push(k[i] ^ 0x5c);
+              i_key_pad.push(k[i] ^ 0x36);
+            }
+            var innerMsg = i_key_pad.concat(msgBytes);
+            var innerWords = bytesToWords(innerMsg, innerMsg.length * 8);
+            var innerHash = sha1Block(innerWords);
+            var innerHashBytes = [];
+            for (var i = 0; i < 5; i++) {
+              for (var b = 3; b >= 0; b--) innerHashBytes.push((innerHash[i] >>> (b * 8)) & 255);
+            }
+            var outerMsg = o_key_pad.concat(innerHashBytes);
+            var outerWords = bytesToWords(outerMsg, outerMsg.length * 8);
+            var outerHash = sha1Block(outerWords);
+            var out = [];
+            for (var i = 0; i < 5; i++) {
+              for (var b = 3; b >= 0; b--) out.push((outerHash[i] >>> (b * 8)) & 255);
+            }
+            return out;
+          }
+
+          function bytesToWords(bytes, bitLength) {
+            var words = [];
+            for (var i = 0; i < bytes.length; i++) {
+              words[i >> 2] |= (bytes[i] & 255) << ((3 - i % 4) * 8);
+            }
+            words[bitLength >> 5] |= 0x80 << (24 - (bitLength % 32));
+            var totalWords = (((bitLength + 64) >>> 9) << 4) + 16;
+            while (words.length < totalWords) words.push(0);
+            words[totalWords - 1] = bitLength & 0xFFFFFFFF;
+            words[totalWords - 2] = Math.floor(bitLength / 0x100000000);
+            return words;
+          }
+
+          function verifyTotp(base32Secret, userCode) {
+            if (!base32Secret || !userCode) return false;
+            var keyBytes = base32Decode(base32Secret);
+            var nowSec = Math.floor(Date.now() / 1000);
+            var step = Math.floor(nowSec / 30);
+            for (var drift = -1; drift <= 1; drift++) {
+              var t = step + drift;
+              var msg = [0, 0, 0, 0, (t >>> 24) & 255, (t >>> 16) & 255, (t >>> 8) & 255, t & 255];
+              var h = hmacSha1(keyBytes, msg);
+              var offset = h[19] & 0x0f;
+              var code = ((h[offset] & 0x7f) << 24 | (h[offset + 1] & 255) << 16 | (h[offset + 2] & 255) << 8 | (h[offset + 3] & 255)) % 1000000;
+              var codeStr = ("000000" + code).slice(-6);
+              if (codeStr === String(userCode).trim()) return true;
+            }
+            return false;
+          }
+
+          function b64Dec(str) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            str = String(str).replace(/[^A-Za-z0-9\+\/\=]/g, "");
+            var bytes = [];
+            var idx = 0;
+            while (idx < str.length) {
+              var e1 = chars.indexOf(str.charAt(idx++));
+              var e2 = chars.indexOf(str.charAt(idx++));
+              var e3 = chars.indexOf(str.charAt(idx++));
+              var e4 = chars.indexOf(str.charAt(idx++));
+              var c1 = (e1 << 2) | (e2 >> 4);
+              var c2 = ((e2 & 15) << 4) | (e3 >> 2);
+              var c3 = ((e3 & 3) << 6) | e4;
+              bytes.push(c1);
+              if (e3 !== 64) bytes.push(c2);
+              if (e4 !== 64) bytes.push(c3);
+            }
+            var out = "";
+            var i = 0;
+            while (i < bytes.length) {
+              var b1 = bytes[i++];
+              if (b1 < 128) out += String.fromCharCode(b1);
+              else if (b1 > 191 && b1 < 224) { var b2 = bytes[i++]; out += String.fromCharCode(((b1 & 31) << 6) | (b2 & 63)); }
+              else { var b2 = bytes[i++]; var b3 = bytes[i++]; out += String.fromCharCode(((b1 & 15) << 12) | ((b2 & 63) << 6) | (b3 & 63)); }
+            }
+            return out;
+          }
+
+          // --- Verification Logic ---
+          try {
+            var devResContent = context.getVariable("getDevUserRes.content");
+            var devUserFound = false;
+            var devData = null;
+            if (devResContent) {
+              try {
+                devData = JSON.parse(devResContent);
+                if (devData.email && (devData.status === "active" || !devData.status)) {
+                  devUserFound = true;
+                }
+              } catch (e) {}
+            }
+
+            if (!devUserFound) {
+              context.setVariable("auth_success", "false");
+              context.setVariable("authorize_error", "access_denied");
+              context.setVariable("authorize_error_description", "Invalid username or password.");
+              context.setVariable("mfa_challenge_needed", "false");
+              return;
+            }
+
+            var inputPassword = context.getVariable("request.formparam.password") || "";
+            var storedHash = "";
+            var storageType = context.getVariable("password_storage_type");
+
+            if (storageType === "secret-manager") {
+              var smRes = context.getVariable("getSecretRes.content");
+              if (smRes) {
+                try {
+                  var smData = JSON.parse(smRes);
+                  var b64Data = smData.payload && smData.payload.data;
+                  if (b64Data) {
+                    storedHash = b64Dec(b64Data).trim();
+                  }
+                } catch (smErr) {}
+              }
+            } else {
+              storedHash = (context.getVariable("private.stored_password_hash") || "").trim();
+            }
+
+            if (!storedHash || storedHash.indexOf(":") === -1) {
+              context.setVariable("auth_success", "false");
+              context.setVariable("authorize_error", "access_denied");
+              context.setVariable("authorize_error_description", "User credentials not found or uninitialized.");
+              context.setVariable("mfa_challenge_needed", "false");
+              return;
+            }
+
+            var parts = storedHash.split(":");
+            var salt = parts[0];
+            var expectedHash = parts[1];
+            var computedHash = sha256(salt + ":" + inputPassword);
+
+            if (computedHash !== expectedHash) {
+              context.setVariable("auth_success", "false");
+              context.setVariable("authorize_error", "access_denied");
+              context.setVariable("authorize_error_description", "Invalid username or password.");
+              context.setVariable("mfa_challenge_needed", "false");
+              return;
+            }
+
+            // Check MFA requirement
+            var systemMfa = context.getVariable("system_mfa_enabled") === "true";
+            var userMfaSecret = "";
+            var userMfaActive = false;
+
+            if (devData.attributes && Array.isArray(devData.attributes)) {
+              for (var a = 0; a < devData.attributes.length; a++) {
+                if (devData.attributes[a].name === "mfa_secret") {
+                  userMfaSecret = devData.attributes[a].value;
+                }
+                if (devData.attributes[a].name === "mfa_enabled" && devData.attributes[a].value === "true") {
+                  userMfaActive = true;
+                }
+              }
+            }
+
+            var mfaRequired = systemMfa || userMfaActive;
+
+            if (mfaRequired && userMfaSecret) {
+              var mfaCode = (context.getVariable("request.formparam.mfa_code") || "").replace(/[^0-9]/g, "");
+              if (!mfaCode) {
+                context.setVariable("auth_success", "false");
+                context.setVariable("mfa_challenge_needed", "true");
+                context.setVariable("mfa_auth_email", devData.email);
+                return;
+              }
+              if (!verifyTotp(userMfaSecret, mfaCode)) {
+                context.setVariable("auth_success", "false");
+                context.setVariable("mfa_challenge_needed", "true");
+                context.setVariable("mfa_error_message", "Invalid authentication code. Please try again.");
+                context.setVariable("mfa_auth_email", devData.email);
+                return;
+              }
+            }
+
+            // Password and MFA verified!
+            function randHex(len) {
+              var chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+              var str = "";
+              for (var i = 0; i < len; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
+              return str;
+            }
+
+            var authCode = "ac_" + randHex(32);
+            var nowSec = Math.floor(Date.now() / 1000);
+
+            var codePayload = {
+              "code": authCode,
+              "client_id": context.getVariable("auth_client_id"),
+              "redirect_uri": context.getVariable("auth_redirect_uri"),
+              "scope": context.getVariable("auth_scope"),
+              "code_challenge": context.getVariable("auth_code_challenge"),
+              "code_challenge_method": context.getVariable("auth_code_challenge_method"),
+              "user_id": devData.developerId || devData.email,
+              "user_email": devData.email,
+              "user_first_name": devData.firstName || "",
+              "user_last_name": devData.lastName || "",
+              "user_name": devData.userName || devData.email,
+              "auth_time": nowSec,
+              "issued_at": nowSec
+            };
+
+            context.setVariable("auth_generated_code", authCode);
+            context.setVariable("auth_code_payload_data", JSON.stringify(codePayload));
+            context.setVariable("auth_success", "true");
+            context.setVariable("mfa_challenge_needed", "false");
+
+            var redirectUri = context.getVariable("auth_redirect_uri");
+            var state = context.getVariable("auth_state");
+            var sep = redirectUri.indexOf("?") === -1 ? "?" : "&";
+            var targetRedirect = redirectUri + sep + "code=" + encodeURIComponent(authCode);
+            if (state) targetRedirect += "&state=" + encodeURIComponent(state);
+
+            context.setVariable("auth_target_redirect_url", targetRedirect);
+
+          } catch (err) {
+            context.setVariable("auth_success", "false");
+            context.setVariable("authorize_error", "server_error");
+            context.setVariable("authorize_error_description", "Credential verification error: " + err);
+            context.setVariable("mfa_challenge_needed", "false");
+          }
+
+          })();
+  - name: AM-MFAChallengeForm
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-MFAChallengeForm
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Two-Factor Authentication | OpenID Connect IdP</title>
+                <style>
+                  :root { --primary: #3b82f6; --primary-hover: #2563eb; --bg: #0b0f19; --card: #111827; --border: #1f2937; --text: #f9fafb; --text-muted: #9ca3af; --input-bg: #1f2937; --danger: #ef4444; }
+                  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+                  .container { background: var(--card); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 440px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; }
+                  .icon-wrap { width: 56px; height: 56px; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 24px; }
+                  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+                  p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; }
+                  .form-group { margin-bottom: 20px; text-align: left; }
+                  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+                  input[type="text"] { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 20px; letter-spacing: 0.3em; text-align: center; font-weight: 600; outline: none; }
+                  input:focus { border-color: var(--primary); }
+                  .btn { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+                  .btn:hover { background: var(--primary-hover); }
+                  .cancel-link { display: inline-block; margin-top: 18px; color: var(--text-muted); font-size: 13px; text-decoration: none; }
+                  .cancel-link:hover { color: var(--text); }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <div class="icon-wrap">🔒</div>
+                  <h1>Two-Factor Verification</h1>
+                  <p>Enter the 6-digit verification code from your authenticator app for <strong>{mfa_auth_email}</strong>.</p>
+
+                  <form action="/authorize" method="POST">
+                    <input type="hidden" name="client_id" value="{auth_client_id}">
+                    <input type="hidden" name="redirect_uri" value="{auth_redirect_uri}">
+                    <input type="hidden" name="response_type" value="{auth_response_type}">
+                    <input type="hidden" name="scope" value="{auth_scope}">
+                    <input type="hidden" name="state" value="{auth_state}">
+                    <input type="hidden" name="code_challenge" value="{auth_code_challenge}">
+                    <input type="hidden" name="code_challenge_method" value="{auth_code_challenge_method}">
+                    <input type="hidden" name="username" value="{auth_user_email}">
+                    <input type="hidden" name="password" value="{request.formparam.password}">
+
+                    <div class="form-group">
+                      <label for="mfa_code">Authenticator Code</label>
+                      <input type="text" id="mfa_code" name="mfa_code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" required autofocus>
+                    </div>
+
+                    <button type="submit" class="btn">Verify & Complete Sign In</button>
+                  </form>
+                  <a href="/authorize?client_id={auth_client_id}&redirect_uri={auth_redirect_uri}&response_type={auth_response_type}&scope={auth_scope}&state={auth_state}&code_challenge={auth_code_challenge}&code_challenge_method={auth_code_challenge_method}" class="cancel-link">Cancel</a>
+                </div>
+                <script>
+                  (function() {
+                    var mfaInput = document.getElementById('mfa_code');
+                    if (mfaInput) {
+                      var form = mfaInput.closest('form');
+                      if (form) {
+                        form.addEventListener('submit', function() {
+                          mfaInput.value = mfaInput.value.replace(/[^0-9]/g, '');
+                        });
+                      }
+                    }
+                  })();
+                </script>
+              </body>
+              </html>
 
   - name: PC-StoreCode
     type: PopulateCache
@@ -1057,13 +1575,13 @@ policies:
         metadata:
           name: PC-StoreCode
         CacheKey:
-          Prefix: OAuth21-Code
+          Prefix: OAuth21-AuthCode
           KeyFragment:
             metadata:
-              ref: auth_code
+              ref: auth_generated_code
         ExpirySettings:
           TimeoutInSec: "600"
-        Source: auth_code_data
+        Source: auth_code_payload_data
 
   - name: AM-AuthorizeRedirect
     type: AssignMessage
@@ -1078,11 +1596,7 @@ policies:
             Header:
               - metadata:
                   name: Location
-                _text: "{auth_redirect_location}"
-          Payload:
-            metadata:
-              contentType: text/plain
-            _text: Redirecting to {auth_redirect_location}
+                _text: "{auth_target_redirect_url}"
 
   - name: AM-AuthorizeErrorResponse
     type: AssignMessage
@@ -1090,18 +1604,1714 @@ policies:
       AssignMessage:
         metadata:
           name: AM-AuthorizeErrorResponse
+        IgnoreUnresolvedVariables: "true"
         Set:
           StatusCode: "400"
           ReasonPhrase: Bad Request
           Payload:
             metadata:
-              contentType: application/json
+              contentType: text/html; charset=utf-8
             _text: |
-              {
-                "error": "{authorize_error}",
-                "error_description": "{authorize_error_description}"
-              }
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Authorization Error</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 32px; max-width: 460px; text-align: center; }
+                  h1 { color: #ef4444; font-size: 20px; margin-bottom: 12px; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 20px; line-height: 1.5; }
+                  a { color: #3b82f6; text-decoration: none; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <h1>Authorization Error: {authorize_error}</h1>
+                  <p>{authorize_error_description}</p>
+                  <a href="/authorize?client_id={auth_client_id}&redirect_uri={auth_redirect_uri}&response_type={auth_response_type}&scope={auth_scope}&state={auth_state}&code_challenge={auth_code_challenge}&code_challenge_method={auth_code_challenge_method}">Try Again</a>
+                </div>
+              </body>
+              </html>
+  - name: JS-ExtractRegisterParams
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ExtractRegisterParams
+        DisplayName: JS-ExtractRegisterParams
+        Properties: {}
+        Source: |
+          context.setVariable("reg_client_id", context.getVariable("request.queryparam.client_id") || "");
+          context.setVariable("reg_redirect_uri", context.getVariable("request.queryparam.redirect_uri") || "");
+          context.setVariable("reg_response_type", context.getVariable("request.queryparam.response_type") || "code");
+          context.setVariable("reg_scope", context.getVariable("request.queryparam.scope") || "openid profile email");
+          context.setVariable("reg_state", context.getVariable("request.queryparam.state") || "");
+          context.setVariable("reg_code_challenge", context.getVariable("request.queryparam.code_challenge") || "");
+          context.setVariable("reg_code_challenge_method", context.getVariable("request.queryparam.code_challenge_method") || "S256");
 
+  - name: AM-RegisterUserForm
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-RegisterUserForm
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Create Account | OpenID Connect IdP</title>
+                <style>
+                  :root { --primary: #3b82f6; --primary-hover: #2563eb; --bg: #0b0f19; --card: #111827; --border: #1f2937; --text: #f9fafb; --text-muted: #9ca3af; --input-bg: #1f2937; }
+                  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+                  .container { background: var(--card); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 480px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+                  .badge { display: inline-flex; align-items: center; background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 20px; border: 1px solid rgba(59, 130, 246, 0.3); }
+                  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+                  p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .row { display: flex; gap: 12px; }
+                  .row .form-group { flex: 1; }
+                  .form-group { margin-bottom: 18px; }
+                  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+                  input[type="text"], input[type="email"], input[type="password"] { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: #fff; font-size: 14px; outline: none; transition: border-color 0.2s; }
+                  input:focus { border-color: var(--primary); }
+                  .btn { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
+                  .btn:hover { background: var(--primary-hover); }
+                  .links { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 13px; }
+                  .links a { color: var(--primary); text-decoration: none; font-weight: 500; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <span class="badge">OpenID Connect IdP</span>
+                  <h1>Create Account</h1>
+                  <p>Register as a new user to access applications across the identity ecosystem.</p>
+
+                  <form action="/register-user" method="POST">
+                    <input type="hidden" name="client_id" value="{reg_client_id}">
+                    <input type="hidden" name="redirect_uri" value="{reg_redirect_uri}">
+                    <input type="hidden" name="response_type" value="{reg_response_type}">
+                    <input type="hidden" name="scope" value="{reg_scope}">
+                    <input type="hidden" name="state" value="{reg_state}">
+                    <input type="hidden" name="code_challenge" value="{reg_code_challenge}">
+                    <input type="hidden" name="code_challenge_method" value="{reg_code_challenge_method}">
+
+                    <div class="row">
+                      <div class="form-group">
+                        <label for="first_name">First Name</label>
+                        <input type="text" id="first_name" name="first_name" placeholder="Ada" required autofocus>
+                      </div>
+                      <div class="form-group">
+                        <label for="last_name">Last Name</label>
+                        <input type="text" id="last_name" name="last_name" placeholder="Lovelace" required>
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="email">Email Address</label>
+                      <input type="email" id="email" name="email" placeholder="ada@example.com" required>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="username">Username (Optional)</label>
+                      <input type="text" id="username" name="username" placeholder="ada">
+                    </div>
+
+                    <div class="form-group">
+                      <label for="password">Password</label>
+                      <input type="password" id="password" name="password" minlength="8" placeholder="Minimum 8 characters" required>
+                    </div>
+
+                    <button type="submit" class="btn">Register & Setup</button>
+                  </form>
+
+                  <div class="links">
+                    Already have an account? <a href="/authorize?client_id={reg_client_id}&redirect_uri={reg_redirect_uri}&response_type={reg_response_type}&scope={reg_scope}&state={reg_state}&code_challenge={reg_code_challenge}&code_challenge_method={reg_code_challenge_method}">Sign In</a>
+                  </div>
+                </div>
+              </body>
+              </html>
+
+  - name: JS-ProcessRegisterUserRequest
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "300"
+          name: JS-ProcessRegisterUserRequest
+        DisplayName: JS-ProcessRegisterUserRequest
+        Properties: {}
+        Source: |
+          (function() {
+          // --- SHA-256 implementation ---
+          function sha256(ascii) {
+            function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+            var mathPow = Math.pow; var maxWord = mathPow(2, 32); var lengthProperty = 'length';
+            var i, j; var result = ''; var words = []; var asciiBitLength = ascii[lengthProperty] * 8;
+            var hash = []; var k = []; var primeCounter = 0; var isComposite = {};
+            for (var candidate = 2; primeCounter < 64; candidate++) {
+              if (!isComposite[candidate]) {
+                for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+                hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+                k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+              }
+            }
+            ascii += '\x80'; while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+            for (i = 0; i < ascii[lengthProperty]; i++) {
+              j = ascii.charCodeAt(i); if (j >> 8) return; words[i >> 2] |= j << ((3 - i % 4) * 8);
+            }
+            words[words[lengthProperty]] = ((asciiBitLength / maxWord) | 0);
+            words[words[lengthProperty]] = (asciiBitLength | 0);
+            for (j = 0; j < words[lengthProperty];) {
+              var w = words.slice(j, j += 16); var oldHash = hash; hash = hash.slice(0, 8);
+              for (i = 0; i < 64; i++) {
+                var s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+                var s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+                var ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+                var maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+                var s1h = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
+                var s0h = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
+                var t1 = (i < 16 ? w[i] : (w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0)) + hash[7] + s1h + ch + k[i];
+                var t2 = s0h + maj;
+                hash = [(t1 + t2) | 0].concat(hash); hash[4] = (hash[4] + t1) | 0;
+              }
+              for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+            }
+            for (i = 0; i < 8; i++) {
+              for (var b = 3; b >= 0; b--) {
+                var byteVal = (hash[i] >> (b * 8)) & 255;
+                result += ((byteVal < 16 ? '0' : '') + byteVal.toString(16));
+              }
+            }
+            return result;
+          }
+
+          function randHex(len) {
+            var chars = "abcdef0123456789";
+            var str = "";
+            for (var i = 0; i < len; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
+            return str;
+          }
+
+          function randBase32(len) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            var str = "";
+            for (var i = 0; i < len; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
+            return str;
+          }
+
+          function b64Enc(str) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            var out = "";
+            var u = [];
+            for (var i = 0; i < str.length; i++) {
+              var c = str.charCodeAt(i);
+              if (c < 128) u.push(c);
+              else if (c < 2048) { u.push((c >> 6) | 192); u.push((c & 63) | 128); }
+              else { u.push((c >> 12) | 224); u.push(((c >> 6) & 63) | 128); u.push((c & 63) | 128); }
+            }
+            var idx = 0;
+            while (idx < u.length) {
+              var c1 = u[idx++];
+              var c2 = idx < u.length ? u[idx++] : NaN;
+              var c3 = idx < u.length ? u[idx++] : NaN;
+              var e1 = c1 >> 2;
+              var e2 = ((c1 & 3) << 4) | (isNaN(c2) ? 0 : c2 >> 4);
+              var e3 = isNaN(c2) ? 64 : (((c2 & 15) << 2) | (isNaN(c3) ? 0 : c3 >> 6));
+              var e4 = isNaN(c3) ? 64 : c3 & 63;
+              out += chars.charAt(e1) + chars.charAt(e2) + chars.charAt(e3) + chars.charAt(e4);
+            }
+            return out;
+          }
+
+          var email = (context.getVariable("request.formparam.email") || "").trim().toLowerCase();
+          var password = context.getVariable("request.formparam.password") || "";
+          var firstName = (context.getVariable("request.formparam.first_name") || "").trim();
+          var lastName = (context.getVariable("request.formparam.last_name") || "").trim();
+          var userName = (context.getVariable("request.formparam.username") || "").trim() || email;
+
+          var clientId = context.getVariable("request.formparam.client_id") || "";
+          var redirectUri = context.getVariable("request.formparam.redirect_uri") || "";
+          var responseType = context.getVariable("request.formparam.response_type") || "code";
+          var scope = context.getVariable("request.formparam.scope") || "openid profile email";
+          var state = context.getVariable("request.formparam.state") || "";
+          var codeChallenge = context.getVariable("request.formparam.code_challenge") || "";
+          var codeChallengeMethod = context.getVariable("request.formparam.code_challenge_method") || "S256";
+
+          context.setVariable("reg_client_id", clientId);
+          context.setVariable("reg_redirect_uri", redirectUri);
+          context.setVariable("reg_response_type", responseType);
+          context.setVariable("reg_scope", scope);
+          context.setVariable("reg_state", state);
+          context.setVariable("reg_code_challenge", codeChallenge);
+          context.setVariable("reg_code_challenge_method", codeChallengeMethod);
+
+          if (!email || !password || !firstName || !lastName) {
+            context.setVariable("reg_syntax_valid", "false");
+            context.setVariable("reg_valid", "false");
+            context.setVariable("reg_error_message", "All fields are required.");
+            return;
+          }
+
+          if (password.length < 8) {
+            context.setVariable("reg_syntax_valid", "false");
+            context.setVariable("reg_valid", "false");
+            context.setVariable("reg_error_message", "Password must be at least 8 characters long.");
+            return;
+          }
+
+          var salt = randHex(16);
+          var hash = sha256(salt + ":" + password);
+          var storedPayload = salt + ":" + hash;
+
+          var b64Payload = b64Enc(storedPayload);
+
+          var secretId = "pwd-" + email.replace(/[^a-zA-Z0-9_-]/g, "_");
+          var mfaSecret = randBase32(16);
+          var systemMfa = context.getVariable("system_mfa_enabled") === "true";
+
+          context.setVariable("reg_user_email", email);
+          context.setVariable("reg_first_name", firstName);
+          context.setVariable("reg_last_name", lastName);
+          context.setVariable("reg_user_name", userName);
+          context.setVariable("reg_user_secret_id", secretId);
+          context.setVariable("private.reg_password_hash", storedPayload);
+          context.setVariable("private.reg_secret_base64_payload", b64Payload);
+          context.setVariable("reg_mfa_secret", mfaSecret);
+          context.setVariable("reg_mfa_enabled", systemMfa ? "true" : "false");
+          context.setVariable("reg_syntax_valid", "true");
+
+          })();
+  - name: SC-CheckDeveloperExists
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-CheckDeveloperExists
+        DisplayName: SC-CheckDeveloperExists
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: checkDevReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: GET
+        Response: checkDevRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://{apigee_api_host}/organizations/{organization.name}/developers/{reg_user_email}"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: JS-ValidateNewUser
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ValidateNewUser
+        DisplayName: JS-ValidateNewUser
+        Properties: {}
+        Source: |
+          (function() {
+          var checkContent = context.getVariable("checkDevRes.content");
+          if (checkContent) {
+            try {
+              var dev = JSON.parse(checkContent);
+              if (dev.email) {
+                context.setVariable("reg_valid", "false");
+                context.setVariable("reg_error_message", "A user with this email address already exists.");
+                return;
+              }
+            } catch (e) {}
+          }
+          context.setVariable("reg_valid", "true");
+
+          })();
+  - name: SC-CreateDeveloperUser
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-CreateDeveloperUser
+        DisplayName: SC-CreateDeveloperUser
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: createDevUserReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: POST
+            Headers:
+              Header:
+                - metadata:
+                    name: Content-Type
+                  _text: application/json
+            Payload:
+              metadata:
+                contentType: application/json
+              _text: |
+                {
+                  "email": "{reg_user_email}",
+                  "firstName": "{reg_first_name}",
+                  "lastName": "{reg_last_name}",
+                  "userName": "{reg_user_name}",
+                  "attributes": [
+                    { "name": "mfa_secret", "value": "{reg_mfa_secret}" },
+                    { "name": "mfa_enabled", "value": "{reg_mfa_enabled}" }
+                  ]
+                }
+        Response: createDevUserRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://{apigee_api_host}/organizations/{organization.name}/developers"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: KVM-PutPassword
+    type: KeyValueMapOperations
+    content:
+      KeyValueMapOperations:
+        metadata:
+          name: KVM-PutPassword
+          mapIdentifier: UserCredentials
+        Put:
+          - metadata:
+              override: "true"
+            Key:
+              Parameter:
+                - metadata:
+                    ref: reg_user_email
+            Value:
+              - metadata:
+                  ref: private.reg_password_hash
+
+  - name: SC-CreateSecretManagerSecret
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-CreateSecretManagerSecret
+        DisplayName: SC-CreateSecretManagerSecret
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: createSecretReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: POST
+            Headers:
+              Header:
+                - metadata:
+                    name: Content-Type
+                  _text: application/json
+            Payload:
+              metadata:
+                contentType: application/json
+              _text: |
+                {
+                  "replication": {
+                    "automatic": {}
+                  }
+                }
+        Response: createSecretRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://secretmanager.googleapis.com/v1/projects/{organization.name}/secrets?secretId={reg_user_secret_id}"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: SC-AddSecretManagerVersion
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-AddSecretManagerVersion
+        DisplayName: SC-AddSecretManagerVersion
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: addVersionReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: POST
+            Headers:
+              Header:
+                - metadata:
+                    name: Content-Type
+                  _text: application/json
+            Payload:
+              metadata:
+                contentType: application/json
+              _text: |
+                {
+                  "payload": {
+                    "data": "{private.reg_secret_base64_payload}"
+                  }
+                }
+        Response: addVersionRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://secretmanager.googleapis.com/v1/projects/{organization.name}/secrets/{reg_user_secret_id}:addVersion"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: JS-PrepareRegisterResponse
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-PrepareRegisterResponse
+        DisplayName: JS-PrepareRegisterResponse
+        Properties: {}
+        Source: |
+          function randBase32(len) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            var str = "";
+            for (var i = 0; i < len; i++) {
+              str += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return str;
+          }
+
+          var email = context.getVariable("reg_user_email");
+          var secret = context.getVariable("reg_mfa_secret");
+          if (!secret) {
+            secret = randBase32(16);
+            context.setVariable("reg_mfa_secret", secret);
+          }
+          var issuer = context.getVariable("mfa_issuer_name") || "ApigeeIdP";
+          var otpauth = "otpauth://totp/" + encodeURIComponent(issuer + ":" + email) + "?secret=" + secret + "&issuer=" + encodeURIComponent(issuer) + "&algorithm=SHA1&digits=6&period=30";
+          var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(otpauth);
+
+          context.setVariable("mfa_otpauth_uri", otpauth);
+          context.setVariable("mfa_qr_url", qrUrl);
+          context.setVariable("mfa_user_email", email);
+          context.setVariable("mfa_secret_display", secret);
+          context.setVariable("mfa_secret_to_save", secret);
+          context.setVariable("mfa_error_display", "none");
+          context.setVariable("mfa_error_message", "");
+
+  - name: AM-MFASetupPage
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-MFASetupPage
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Setup Authenticator App | OpenID Connect IdP</title>
+                <style>
+                  :root { --primary: #3b82f6; --primary-hover: #2563eb; --bg: #0b0f19; --card: #111827; --border: #1f2937; --text: #f9fafb; --text-muted: #9ca3af; --input-bg: #1f2937; }
+                  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+                  .container { background: var(--card); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 480px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; }
+                  .badge { display: inline-flex; align-items: center; background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 20px; border: 1px solid rgba(59, 130, 246, 0.3); }
+                  h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+                  p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .qr-box { background: #fff; padding: 12px; border-radius: 12px; display: inline-block; margin-bottom: 18px; }
+                  .qr-box img { display: block; border-radius: 4px; width: 180px; height: 180px; }
+                  .secret-label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+                  .secret-key { font-family: ui-monospace, monospace; font-size: 16px; letter-spacing: 0.15em; background: var(--input-bg); border: 1px solid var(--border); padding: 8px 12px; border-radius: 8px; display: inline-block; margin-bottom: 24px; color: #60a5fa; }
+                  .form-group { margin-bottom: 20px; text-align: left; }
+                  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+                  input[type="text"], input[type="email"] { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; color: #fff; font-size: 15px; outline: none; }
+                  input#mfa_code { font-size: 18px; letter-spacing: 0.2em; text-align: center; font-weight: 600; }
+                  input:focus { border-color: var(--primary); }
+                  .btn { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+                  .btn:hover { background: var(--primary-hover); }
+                  .error { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 20px; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <span class="badge">Two-Factor Authentication</span>
+                  <h1>Setup Authenticator</h1>
+                  <p>Scan this QR code with Google Authenticator, Aegis, Authy, or any RFC 6238 TOTP app.</p>
+
+                  <div class="error" style="display: {mfa_error_display};">{mfa_error_message}</div>
+
+                  <div class="qr-box">
+                    <img src="{mfa_qr_url}" alt="MFA QR Code">
+                  </div>
+
+                  <div class="secret-label">Manual Entry Key:</div>
+                  <div class="secret-key">{mfa_secret_display}</div>
+
+                  <form action="/mfa-setup" method="POST">
+                    <input type="hidden" name="mfa_secret" value="{mfa_secret_display}">
+                    <input type="hidden" name="client_id" value="{reg_client_id}">
+                    <input type="hidden" name="redirect_uri" value="{reg_redirect_uri}">
+                    <input type="hidden" name="response_type" value="{reg_response_type}">
+                    <input type="hidden" name="scope" value="{reg_scope}">
+                    <input type="hidden" name="state" value="{reg_state}">
+                    <input type="hidden" name="code_challenge" value="{reg_code_challenge}">
+                    <input type="hidden" name="code_challenge_method" value="{reg_code_challenge_method}">
+
+                    <div class="form-group">
+                      <label for="email">Account Email</label>
+                      <input type="email" id="email" name="email" value="{mfa_user_email}" placeholder="user@example.com" required>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="mfa_code">Verification Code</label>
+                      <input type="text" id="mfa_code" name="mfa_code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" required autofocus>
+                    </div>
+
+                    <button type="submit" class="btn">Verify & Activate MFA</button>
+                  </form>
+                </div>
+                <script>
+                  (function() {
+                    var emailInput = document.getElementById('email');
+                    var qrImg = document.querySelector('.qr-box img');
+                    var secret = document.querySelector('input[name="mfa_secret"]').value;
+                    var issuer = "ApigeeIdP";
+                    if (emailInput && qrImg && secret) {
+                      emailInput.addEventListener('input', function() {
+                        var em = (emailInput.value || '').trim() || 'User';
+                        var uri = 'otpauth://totp/' + encodeURIComponent(issuer + ':' + em) + '?secret=' + secret + '&issuer=' + encodeURIComponent(issuer) + '&algorithm=SHA1&digits=6&period=30';
+                        qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(uri);
+                      });
+                    }
+                    var mfaInput = document.getElementById('mfa_code');
+                    if (mfaInput) {
+                      var form = mfaInput.closest('form');
+                      if (form) {
+                        form.addEventListener('submit', function() {
+                          mfaInput.value = mfaInput.value.replace(/[^0-9]/g, '');
+                        });
+                      }
+                    }
+                  })();
+                </script>
+              </body>
+              </html>
+
+  - name: AM-RegisterUserSuccess
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-RegisterUserSuccess
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Registration Successful</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 36px; max-width: 460px; text-align: center; }
+                  .icon { font-size: 40px; margin-bottom: 16px; }
+                  h1 { font-size: 22px; margin-bottom: 12px; color: #10b981; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .btn { display: inline-block; background: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <div class="icon">✅</div>
+                  <h1>Account Created!</h1>
+                  <p>Your account for <strong>{reg_user_email}</strong> has been successfully registered. You can now sign in.</p>
+                  <a href="/authorize?client_id={reg_client_id}&redirect_uri={reg_redirect_uri}&response_type={reg_response_type}&scope={reg_scope}&state={reg_state}&code_challenge={reg_code_challenge}&code_challenge_method={reg_code_challenge_method}" class="btn">Proceed to Sign In</a>
+                </div>
+              </body>
+              </html>
+
+  - name: AM-RegisterUserFailure
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-RegisterUserFailure
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          StatusCode: "400"
+          ReasonPhrase: Bad Request
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Registration Failed</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 36px; max-width: 460px; text-align: center; }
+                  h1 { color: #ef4444; font-size: 22px; margin-bottom: 12px; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  a { color: #3b82f6; text-decoration: none; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <h1>Registration Error</h1>
+                  <p>{reg_error_message}</p>
+                  <a href="/register-user?client_id={reg_client_id}&redirect_uri={reg_redirect_uri}&response_type={reg_response_type}&scope={reg_scope}&state={reg_state}&code_challenge={reg_code_challenge}&code_challenge_method={reg_code_challenge_method}">Try Again</a>
+                </div>
+              </body>
+              </html>
+
+  - name: JS-ProcessMFASetup
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ProcessMFASetup
+        DisplayName: JS-ProcessMFASetup
+        Properties: {}
+        Source: |
+          function randBase32(len) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            var str = "";
+            for (var i = 0; i < len; i++) {
+              str += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return str;
+          }
+
+          var verb = context.getVariable("request.verb");
+          var email, secret;
+
+          var clientId = context.getVariable("request.queryparam.client_id") || context.getVariable("request.formparam.client_id") || "";
+          var redirectUri = context.getVariable("request.queryparam.redirect_uri") || context.getVariable("request.formparam.redirect_uri") || "";
+          var responseType = context.getVariable("request.queryparam.response_type") || context.getVariable("request.formparam.response_type") || "code";
+          var scope = context.getVariable("request.queryparam.scope") || context.getVariable("request.formparam.scope") || "";
+          var state = context.getVariable("request.queryparam.state") || context.getVariable("request.formparam.state") || "";
+          var codeChallenge = context.getVariable("request.queryparam.code_challenge") || context.getVariable("request.formparam.code_challenge") || "";
+          var codeChallengeMethod = context.getVariable("request.queryparam.code_challenge_method") || context.getVariable("request.formparam.code_challenge_method") || "";
+
+          context.setVariable("reg_client_id", clientId);
+          context.setVariable("reg_redirect_uri", redirectUri);
+          context.setVariable("reg_response_type", responseType);
+          context.setVariable("reg_scope", scope);
+          context.setVariable("reg_state", state);
+          context.setVariable("reg_code_challenge", codeChallenge);
+          context.setVariable("reg_code_challenge_method", codeChallengeMethod);
+
+          if (verb === "POST") {
+            email = (context.getVariable("request.formparam.email") || "").trim();
+            secret = (context.getVariable("request.formparam.mfa_secret") || "").trim();
+            context.setVariable("mfa_verify_action", "confirm");
+          } else {
+            email = (context.getVariable("request.queryparam.email") || context.getVariable("request.queryparam.username") || "").trim();
+            secret = (context.getVariable("request.queryparam.secret") || "").trim();
+            context.setVariable("mfa_verify_action", "view");
+          }
+
+          if (!secret) {
+            secret = randBase32(16);
+          }
+
+          var issuer = context.getVariable("mfa_issuer_name") || "ApigeeIdP";
+          var accountLabel = email || "User";
+          var otpauth = "otpauth://totp/" + encodeURIComponent(issuer + ":" + accountLabel) + "?secret=" + secret + "&issuer=" + encodeURIComponent(issuer) + "&algorithm=SHA1&digits=6&period=30";
+          var qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(otpauth);
+
+          context.setVariable("mfa_user_email", email);
+          context.setVariable("mfa_secret_display", secret);
+          context.setVariable("mfa_secret_to_save", secret);
+          context.setVariable("mfa_otpauth_uri", otpauth);
+          context.setVariable("mfa_qr_url", qrUrl);
+          context.setVariable("auth_user_email", email);
+          context.setVariable("mfa_error_display", "none");
+          context.setVariable("mfa_error_message", "");
+
+  - name: JS-VerifyMFACodeAndActivate
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "300"
+          name: JS-VerifyMFACodeAndActivate
+        DisplayName: JS-VerifyMFACodeAndActivate
+        Properties: {}
+        Source: |
+          (function() {
+          function base32Decode(str) {
+            var b32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+            var cleanStr = str.toUpperCase().replace(/=+$/, "");
+            var bits = 0, val = 0; var out = [];
+            for (var i = 0; i < cleanStr.length; i++) {
+              var idx = b32.indexOf(cleanStr.charAt(i)); if (idx === -1) continue;
+              val = (val << 5) | idx; bits += 5;
+              if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; }
+            }
+            return out;
+          }
+
+          function sha1Block(words) {
+            var h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+            var w = new Array(80);
+            for (var i = 0; i < words.length; i += 16) {
+              for (var t = 0; t < 16; t++) w[t] = words[i + t] | 0;
+              for (var t = 16; t < 80; t++) { var s = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]; w[t] = (s << 1) | (s >>> 31); }
+              var a = h0, b = h1, c = h2, d = h3, e = h4;
+              for (var t = 0; t < 80; t++) {
+                var f, k;
+                if (t < 20) { f = (b & c) | ((~b) & d); k = 0x5A827999; }
+                else if (t < 40) { f = b ^ c ^ d; k = 0x6ED9EBA1; }
+                else if (t < 60) { f = (b & c) | (b & d) | (c & d); k = 0x8F1BBCDC; }
+                else { f = b ^ c ^ d; k = 0xCA62C1D6; }
+                var temp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]) | 0;
+                e = d; d = c; c = (b << 30) | (b >>> 2); b = a; a = temp;
+              }
+              h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
+            }
+            return [h0, h1, h2, h3, h4];
+          }
+
+          function hmacSha1(keyBytes, msgBytes) {
+            var k = keyBytes.slice();
+            if (k.length > 64) {
+              var kw = bytesToWords(k, k.length * 8); var kh = sha1Block(kw); k = [];
+              for (var i = 0; i < 5; i++) for (var b = 3; b >= 0; b--) k.push((kh[i] >>> (b * 8)) & 255);
+            }
+            while (k.length < 64) k.push(0);
+            var o_key_pad = [], i_key_pad = [];
+            for (var i = 0; i < 64; i++) { o_key_pad.push(k[i] ^ 0x5c); i_key_pad.push(k[i] ^ 0x36); }
+            var innerMsg = i_key_pad.concat(msgBytes);
+            var innerWords = bytesToWords(innerMsg, innerMsg.length * 8);
+            var innerHash = sha1Block(innerWords);
+            var innerHashBytes = [];
+            for (var i = 0; i < 5; i++) for (var b = 3; b >= 0; b--) innerHashBytes.push((innerHash[i] >>> (b * 8)) & 255);
+            var outerMsg = o_key_pad.concat(innerHashBytes);
+            var outerWords = bytesToWords(outerMsg, outerMsg.length * 8);
+            var outerHash = sha1Block(outerWords);
+            var out = [];
+            for (var i = 0; i < 5; i++) for (var b = 3; b >= 0; b--) out.push((outerHash[i] >>> (b * 8)) & 255);
+            return out;
+          }
+
+          function bytesToWords(bytes, bitLength) {
+            var words = [];
+            for (var i = 0; i < bytes.length; i++) words[i >> 2] |= (bytes[i] & 255) << ((3 - i % 4) * 8);
+            words[bitLength >> 5] |= 0x80 << (24 - (bitLength % 32));
+            var totalWords = (((bitLength + 64) >>> 9) << 4) + 16;
+            while (words.length < totalWords) words.push(0);
+            words[totalWords - 1] = bitLength & 0xFFFFFFFF;
+            words[totalWords - 2] = Math.floor(bitLength / 0x100000000);
+            return words;
+          }
+
+          function verifyTotp(base32Secret, userCode) {
+            if (!base32Secret || !userCode) return false;
+            var keyBytes = base32Decode(base32Secret);
+            var nowSec = Math.floor(Date.now() / 1000);
+            var step = Math.floor(nowSec / 30);
+            for (var drift = -1; drift <= 1; drift++) {
+              var t = step + drift;
+              var msg = [0, 0, 0, 0, (t >>> 24) & 255, (t >>> 16) & 255, (t >>> 8) & 255, t & 255];
+              var h = hmacSha1(keyBytes, msg);
+              var offset = h[19] & 0x0f;
+              var code = ((h[offset] & 0x7f) << 24 | (h[offset + 1] & 255) << 16 | (h[offset + 2] & 255) << 8 | (h[offset + 3] & 255)) % 1000000;
+              var codeStr = ("000000" + code).slice(-6);
+              if (codeStr === String(userCode).trim()) return true;
+            }
+            return false;
+          }
+
+          var secret = context.getVariable("mfa_secret_to_save");
+          var userCode = (context.getVariable("request.formparam.mfa_code") || "").replace(/[^0-9]/g, "");
+          var email = (context.getVariable("request.formparam.email") || context.getVariable("mfa_user_email") || "").trim();
+
+          context.setVariable("mfa_user_email", email);
+          context.setVariable("auth_user_email", email);
+
+          var devResCode = context.getVariable("getDevUserRes.status.code");
+          if (devResCode && String(devResCode) !== "200") {
+            context.setVariable("mfa_confirmed", "false");
+            context.setVariable("mfa_error_message", "Account not found for email: " + (email || "unknown"));
+            context.setVariable("mfa_error_display", "block");
+          } else if (verifyTotp(secret, userCode)) {
+            context.setVariable("mfa_confirmed", "true");
+          } else {
+            context.setVariable("mfa_confirmed", "false");
+            context.setVariable("mfa_error_message", "Invalid 6-digit code. Please verify time synchronization and try again.");
+            context.setVariable("mfa_error_display", "block");
+          }
+          })();
+
+  - name: SC-UpdateDeveloperUser
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-UpdateDeveloperUser
+        DisplayName: SC-UpdateDeveloperUser
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: updateDevReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: PUT
+            Headers:
+              Header:
+                - metadata:
+                    name: Content-Type
+                  _text: application/json
+            Payload:
+              metadata:
+                contentType: application/json
+              _text: |
+                {
+                  "email": "{mfa_user_email}",
+                  "attributes": [
+                    { "name": "mfa_secret", "value": "{mfa_secret_to_save}" },
+                    { "name": "mfa_enabled", "value": "true" }
+                  ]
+                }
+        Response: updateDevRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://{apigee_api_host}/organizations/{organization.name}/developers/{mfa_user_email}"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: AM-MFAConfirmedPage
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-MFAConfirmedPage
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>MFA Enabled Successfully</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 36px; max-width: 460px; text-align: center; }
+                  .icon { font-size: 40px; margin-bottom: 16px; }
+                  h1 { font-size: 22px; margin-bottom: 12px; color: #10b981; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .btn { display: inline-block; background: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <div class="icon">🛡️</div>
+                  <h1>Two-Factor Authentication Active</h1>
+                  <p>Your authenticator app is confirmed and linked to <strong>{mfa_user_email}</strong>. You're ready to sign in.</p>
+                  <a href="/authorize?client_id={reg_client_id}&redirect_uri={reg_redirect_uri}&response_type={reg_response_type}&scope={reg_scope}&state={reg_state}&code_challenge={reg_code_challenge}&code_challenge_method={reg_code_challenge_method}" class="btn">Proceed to Sign In</a>
+                </div>
+              </body>
+              </html>
+  - name: JS-ExtractResetParams
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ExtractResetParams
+        DisplayName: JS-ExtractResetParams
+        Properties: {}
+        Source: |
+          context.setVariable("reset_client_id", context.getVariable("request.queryparam.client_id") || "");
+          context.setVariable("reset_redirect_uri", context.getVariable("request.queryparam.redirect_uri") || "");
+
+  - name: AM-ResetPasswordForm
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-ResetPasswordForm
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Reset Password | OpenID Connect IdP</title>
+                <style>
+                  :root { --primary: #3b82f6; --primary-hover: #2563eb; --bg: #0b0f19; --card: #111827; --border: #1f2937; --text: #f9fafb; --text-muted: #9ca3af; --input-bg: #1f2937; }
+                  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+                  .container { background: var(--card); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 440px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+                  .badge { display: inline-flex; align-items: center; background: rgba(59, 130, 246, 0.15); color: #60a5fa; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 20px; border: 1px solid rgba(59, 130, 246, 0.3); }
+                  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+                  p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .form-group { margin-bottom: 18px; }
+                  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+                  input[type="email"], input[type="password"] { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: #fff; font-size: 14px; outline: none; }
+                  input:focus { border-color: var(--primary); }
+                  .btn { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
+                  .btn:hover { background: var(--primary-hover); }
+                  .links { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 13px; }
+                  .links a { color: var(--primary); text-decoration: none; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <span class="badge">Security & Password</span>
+                  <h1>Reset Password</h1>
+                  <p>Verify your existing password to establish a new password.</p>
+
+                  <form action="/reset-password" method="POST">
+                    <input type="hidden" name="client_id" value="{reset_client_id}">
+                    <input type="hidden" name="redirect_uri" value="{reset_redirect_uri}">
+
+                    <div class="form-group">
+                      <label for="email">Email Address</label>
+                      <input type="email" id="email" name="email" placeholder="user@example.com" required autofocus>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="current_password">Current Password</label>
+                      <input type="password" id="current_password" name="current_password" placeholder="••••••••" required>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="new_password">New Password</label>
+                      <input type="password" id="new_password" name="new_password" minlength="8" placeholder="Minimum 8 characters" required>
+                    </div>
+
+                    <button type="submit" class="btn">Update Password</button>
+                  </form>
+
+                  <div class="links">
+                    <a href="/authorize?client_id={reset_client_id}&redirect_uri={reset_redirect_uri}">Return to Sign In</a>
+                  </div>
+                </div>
+              </body>
+              </html>
+
+  - name: JS-ProcessResetRequest
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ProcessResetRequest
+        DisplayName: JS-ProcessResetRequest
+        Properties: {}
+        Source: |
+          (function() {
+          var email = (context.getVariable("request.formparam.email") || "").trim().toLowerCase();
+          var currentPassword = context.getVariable("request.formparam.current_password") || "";
+          var newPassword = context.getVariable("request.formparam.new_password") || "";
+
+          context.setVariable("reset_user_email", email);
+          context.setVariable("auth_user_email", email);
+          var secretId = "pwd-" + email.replace(/[^a-zA-Z0-9_-]/g, "_");
+          context.setVariable("user_secret_id", secretId);
+          context.setVariable("reg_user_secret_id", secretId);
+
+          if (!email || !currentPassword || !newPassword) {
+            context.setVariable("reset_syntax_valid", "false");
+            context.setVariable("reset_valid", "false");
+            context.setVariable("reset_error_message", "All fields are required.");
+            return;
+          }
+
+          if (newPassword.length < 8) {
+            context.setVariable("reset_syntax_valid", "false");
+            context.setVariable("reset_valid", "false");
+            context.setVariable("reset_error_message", "New password must be at least 8 characters long.");
+            return;
+          }
+
+          context.setVariable("reset_syntax_valid", "true");
+
+          })();
+  - name: JS-VerifyAndHashNewPassword
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "300"
+          name: JS-VerifyAndHashNewPassword
+        DisplayName: JS-VerifyAndHashNewPassword
+        Properties: {}
+        Source: |
+          (function() {
+          function sha256(ascii) {
+            function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+            var mathPow = Math.pow; var maxWord = mathPow(2, 32); var lengthProperty = 'length';
+            var i, j; var result = ''; var words = []; var asciiBitLength = ascii[lengthProperty] * 8;
+            var hash = []; var k = []; var primeCounter = 0; var isComposite = {};
+            for (var candidate = 2; primeCounter < 64; candidate++) {
+              if (!isComposite[candidate]) {
+                for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+                hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+                k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+              }
+            }
+            ascii += '\x80'; while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+            for (i = 0; i < ascii[lengthProperty]; i++) {
+              j = ascii.charCodeAt(i); if (j >> 8) return; words[i >> 2] |= j << ((3 - i % 4) * 8);
+            }
+            words[words[lengthProperty]] = ((asciiBitLength / maxWord) | 0);
+            words[words[lengthProperty]] = (asciiBitLength | 0);
+            for (j = 0; j < words[lengthProperty];) {
+              var w = words.slice(j, j += 16); var oldHash = hash; hash = hash.slice(0, 8);
+              for (i = 0; i < 64; i++) {
+                var s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+                var s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+                var ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+                var maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+                var s1h = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
+                var s0h = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
+                var t1 = (i < 16 ? w[i] : (w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0)) + hash[7] + s1h + ch + k[i];
+                var t2 = s0h + maj;
+                hash = [(t1 + t2) | 0].concat(hash); hash[4] = (hash[4] + t1) | 0;
+              }
+              for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+            }
+            for (i = 0; i < 8; i++) {
+              for (var b = 3; b >= 0; b--) {
+                var byteVal = (hash[i] >> (b * 8)) & 255;
+                result += ((byteVal < 16 ? '0' : '') + byteVal.toString(16));
+              }
+            }
+            return result;
+          }
+
+          function b64Dec(str) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            str = String(str).replace(/[^A-Za-z0-9\+\/\=]/g, "");
+            var bytes = [];
+            var idx = 0;
+            while (idx < str.length) {
+              var e1 = chars.indexOf(str.charAt(idx++));
+              var e2 = chars.indexOf(str.charAt(idx++));
+              var e3 = chars.indexOf(str.charAt(idx++));
+              var e4 = chars.indexOf(str.charAt(idx++));
+              var c1 = (e1 << 2) | (e2 >> 4);
+              var c2 = ((e2 & 15) << 4) | (e3 >> 2);
+              var c3 = ((e3 & 3) << 6) | e4;
+              bytes.push(c1);
+              if (e3 !== 64) bytes.push(c2);
+              if (e4 !== 64) bytes.push(c3);
+            }
+            var out = "";
+            var i = 0;
+            while (i < bytes.length) {
+              var b1 = bytes[i++];
+              if (b1 < 128) out += String.fromCharCode(b1);
+              else if (b1 > 191 && b1 < 224) { var b2 = bytes[i++]; out += String.fromCharCode(((b1 & 31) << 6) | (b2 & 63)); }
+              else { var b2 = bytes[i++]; var b3 = bytes[i++]; out += String.fromCharCode(((b1 & 15) << 12) | ((b2 & 63) << 6) | (b3 & 63)); }
+            }
+            return out;
+          }
+
+          function b64Enc(str) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            var out = "";
+            var u = [];
+            for (var i = 0; i < str.length; i++) {
+              var c = str.charCodeAt(i);
+              if (c < 128) u.push(c);
+              else if (c < 2048) { u.push((c >> 6) | 192); u.push((c & 63) | 128); }
+              else { u.push((c >> 12) | 224); u.push(((c >> 6) & 63) | 128); u.push((c & 63) | 128); }
+            }
+            var idx = 0;
+            while (idx < u.length) {
+              var c1 = u[idx++];
+              var c2 = idx < u.length ? u[idx++] : NaN;
+              var c3 = idx < u.length ? u[idx++] : NaN;
+              var e1 = c1 >> 2;
+              var e2 = ((c1 & 3) << 4) | (isNaN(c2) ? 0 : c2 >> 4);
+              var e3 = isNaN(c2) ? 64 : (((c2 & 15) << 2) | (isNaN(c3) ? 0 : c3 >> 6));
+              var e4 = isNaN(c3) ? 64 : c3 & 63;
+              out += chars.charAt(e1) + chars.charAt(e2) + chars.charAt(e3) + chars.charAt(e4);
+            }
+            return out;
+          }
+
+          function randHex(len) {
+            var chars = "abcdef0123456789";
+            var str = "";
+            for (var i = 0; i < len; i++) str += chars.charAt(Math.floor(Math.random() * chars.length));
+            return str;
+          }
+
+          var devResContent = context.getVariable("getDevUserRes.content");
+          var devUserFound = false;
+          if (devResContent) {
+            try {
+              var dev = JSON.parse(devResContent);
+              if (dev.email) devUserFound = true;
+            } catch (e) {}
+          }
+
+          if (!devUserFound) {
+            context.setVariable("reset_valid", "false");
+            context.setVariable("reset_error_message", "Invalid email address or credentials.");
+            return;
+          }
+
+          var currentPassword = context.getVariable("request.formparam.current_password") || "";
+          var newPassword = context.getVariable("request.formparam.new_password") || "";
+          var storedHash = "";
+          var storageType = context.getVariable("password_storage_type");
+
+          if (storageType === "secret-manager") {
+            var smRes = context.getVariable("getSecretRes.content");
+            if (smRes) {
+              try {
+                var smData = JSON.parse(smRes);
+                var b64Data = smData.payload && smData.payload.data;
+                if (b64Data) {
+                  storedHash = b64Dec(b64Data).trim();
+                }
+              } catch (smErr) {}
+            }
+          } else {
+            storedHash = (context.getVariable("private.stored_password_hash") || "").trim();
+          }
+
+          if (!storedHash || storedHash.indexOf(":") === -1) {
+            context.setVariable("reset_valid", "false");
+            context.setVariable("reset_error_message", "Stored password not found.");
+            return;
+          }
+
+          var parts = storedHash.split(":");
+          var currentSalt = parts[0];
+          var expectedHash = parts[1];
+
+          if (sha256(currentSalt + ":" + currentPassword) !== expectedHash) {
+            context.setVariable("reset_valid", "false");
+            context.setVariable("reset_error_message", "Current password does not match.");
+            return;
+          }
+
+          var newSalt = randHex(16);
+          var newHash = sha256(newSalt + ":" + newPassword);
+          var newStoredPayload = newSalt + ":" + newHash;
+          var b64Payload = b64Enc(newStoredPayload);
+
+          var email = context.getVariable("reset_user_email");
+          context.setVariable("reg_user_email", email);
+          context.setVariable("private.reg_password_hash", newStoredPayload);
+          context.setVariable("private.reg_secret_base64_payload", b64Payload);
+          context.setVariable("reset_valid", "true");
+
+          })();
+  - name: AM-ResetPasswordSuccess
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-ResetPasswordSuccess
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Password Reset Successful</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 36px; max-width: 460px; text-align: center; }
+                  .icon { font-size: 40px; margin-bottom: 16px; }
+                  h1 { font-size: 22px; margin-bottom: 12px; color: #10b981; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .btn { display: inline-block; background: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <div class="icon">🔑</div>
+                  <h1>Password Updated!</h1>
+                  <p>Your password for <strong>{reset_user_email}</strong> has been successfully updated. You can now sign in with your new password.</p>
+                  <a href="/authorize?client_id={reset_client_id}&redirect_uri={reset_redirect_uri}" class="btn">Sign In Now</a>
+                </div>
+              </body>
+              </html>
+
+  - name: AM-ResetPasswordFailure
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-ResetPasswordFailure
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          StatusCode: "400"
+          ReasonPhrase: Bad Request
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Password Reset Failed</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 36px; max-width: 460px; text-align: center; }
+                  h1 { color: #ef4444; font-size: 22px; margin-bottom: 12px; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  a { color: #3b82f6; text-decoration: none; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <h1>Reset Error</h1>
+                  <p>{reset_error_message}</p>
+                  <a href="/reset-password?client_id={reset_client_id}&redirect_uri={reset_redirect_uri}">Try Again</a>
+                </div>
+              </body>
+              </html>
+
+  - name: JS-ExtractDeleteParams
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ExtractDeleteParams
+        DisplayName: JS-ExtractDeleteParams
+        Properties: {}
+        Source: |
+          context.setVariable("delete_client_id", context.getVariable("request.queryparam.client_id") || "");
+          context.setVariable("delete_redirect_uri", context.getVariable("request.queryparam.redirect_uri") || "");
+
+  - name: AM-DeleteAccountForm
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-DeleteAccountForm
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html lang="en">
+              <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Delete Account | OpenID Connect IdP</title>
+                <style>
+                  :root { --danger: #ef4444; --danger-hover: #dc2626; --bg: #0b0f19; --card: #111827; --border: #1f2937; --text: #f9fafb; --text-muted: #9ca3af; --input-bg: #1f2937; }
+                  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+                  body { background: var(--bg); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+                  .container { background: var(--card); border: 1px solid var(--border); border-radius: 16px; width: 100%; max-width: 440px; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+                  .badge { display: inline-flex; align-items: center; background: rgba(239, 68, 68, 0.15); color: #fca5a5; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600; margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.3); }
+                  h1 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+                  p { color: var(--text-muted); font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .warning-box { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px 14px; font-size: 13px; color: #fca5a5; margin-bottom: 20px; }
+                  .form-group { margin-bottom: 18px; }
+                  label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+                  input[type="email"], input[type="password"] { width: 100%; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; padding: 11px 14px; color: #fff; font-size: 14px; outline: none; }
+                  input:focus { border-color: var(--danger); }
+                  .btn-danger { width: 100%; background: var(--danger); color: #fff; border: none; border-radius: 8px; padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; margin-top: 8px; }
+                  .btn-danger:hover { background: var(--danger-hover); }
+                  .links { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 13px; }
+                  .links a { color: #9ca3af; text-decoration: none; }
+                  .links a:hover { color: #fff; }
+                </style>
+              </head>
+              <body>
+                <div class="container">
+                  <span class="badge">Danger Zone</span>
+                  <h1>Delete Account</h1>
+                  <p>Permanently remove your account and all associated access credentials.</p>
+
+                  <div class="warning-box">
+                    ⚠️ <strong>Warning:</strong> This action is irreversible. Your profile and stored credentials will be permanently erased.
+                  </div>
+
+                  <form action="/delete-account" method="POST">
+                    <input type="hidden" name="client_id" value="{delete_client_id}">
+                    <input type="hidden" name="redirect_uri" value="{delete_redirect_uri}">
+
+                    <div class="form-group">
+                      <label for="email">Account Email Address</label>
+                      <input type="email" id="email" name="email" placeholder="user@example.com" required autofocus>
+                    </div>
+
+                    <div class="form-group">
+                      <label for="password">Password Confirmation</label>
+                      <input type="password" id="password" name="password" placeholder="••••••••" required>
+                    </div>
+
+                    <button type="submit" class="btn-danger">Permanently Delete Account</button>
+                  </form>
+
+                  <div class="links">
+                    <a href="/authorize?client_id={delete_client_id}&redirect_uri={delete_redirect_uri}">Cancel and Return to Sign In</a>
+                  </div>
+                </div>
+              </body>
+              </html>
+
+  - name: JS-ProcessDeleteRequest
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ProcessDeleteRequest
+        DisplayName: JS-ProcessDeleteRequest
+        Properties: {}
+        Source: |
+          (function() {
+          var email = (context.getVariable("request.formparam.email") || "").trim().toLowerCase();
+          var password = context.getVariable("request.formparam.password") || "";
+
+          context.setVariable("delete_user_email", email);
+          context.setVariable("auth_user_email", email);
+          var secretId = "pwd-" + email.replace(/[^a-zA-Z0-9_-]/g, "_");
+          context.setVariable("user_secret_id", secretId);
+          context.setVariable("delete_user_secret_id", secretId);
+
+          if (!email || !password) {
+            context.setVariable("delete_syntax_valid", "false");
+            context.setVariable("delete_valid", "false");
+            context.setVariable("delete_error_message", "Email and password are required.");
+            return;
+          }
+
+          context.setVariable("delete_syntax_valid", "true");
+
+          })();
+  - name: JS-VerifyDeleteAccount
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "300"
+          name: JS-VerifyDeleteAccount
+        DisplayName: JS-VerifyDeleteAccount
+        Properties: {}
+        Source: |
+          (function() {
+          function b64Dec(str) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            str = String(str).replace(/[^A-Za-z0-9\+\/\=]/g, "");
+            var bytes = [];
+            var idx = 0;
+            while (idx < str.length) {
+              var e1 = chars.indexOf(str.charAt(idx++));
+              var e2 = chars.indexOf(str.charAt(idx++));
+              var e3 = chars.indexOf(str.charAt(idx++));
+              var e4 = chars.indexOf(str.charAt(idx++));
+              var c1 = (e1 << 2) | (e2 >> 4);
+              var c2 = ((e2 & 15) << 4) | (e3 >> 2);
+              var c3 = ((e3 & 3) << 6) | e4;
+              bytes.push(c1);
+              if (e3 !== 64) bytes.push(c2);
+              if (e4 !== 64) bytes.push(c3);
+            }
+            var out = "";
+            var i = 0;
+            while (i < bytes.length) {
+              var b1 = bytes[i++];
+              if (b1 < 128) out += String.fromCharCode(b1);
+              else if (b1 > 191 && b1 < 224) { var b2 = bytes[i++]; out += String.fromCharCode(((b1 & 31) << 6) | (b2 & 63)); }
+              else { var b2 = bytes[i++]; var b3 = bytes[i++]; out += String.fromCharCode(((b1 & 15) << 12) | ((b2 & 63) << 6) | (b3 & 63)); }
+            }
+            return out;
+          }
+          function sha256(ascii) {
+            function rightRotate(value, amount) { return (value >>> amount) | (value << (32 - amount)); }
+            var mathPow = Math.pow; var maxWord = mathPow(2, 32); var lengthProperty = 'length';
+            var i, j; var result = ''; var words = []; var asciiBitLength = ascii[lengthProperty] * 8;
+            var hash = []; var k = []; var primeCounter = 0; var isComposite = {};
+            for (var candidate = 2; primeCounter < 64; candidate++) {
+              if (!isComposite[candidate]) {
+                for (i = 0; i < 313; i += candidate) isComposite[i] = candidate;
+                hash[primeCounter] = (mathPow(candidate, .5) * maxWord) | 0;
+                k[primeCounter++] = (mathPow(candidate, 1 / 3) * maxWord) | 0;
+              }
+            }
+            ascii += '\x80'; while (ascii[lengthProperty] % 64 - 56) ascii += '\x00';
+            for (i = 0; i < ascii[lengthProperty]; i++) {
+              j = ascii.charCodeAt(i); if (j >> 8) return; words[i >> 2] |= j << ((3 - i % 4) * 8);
+            }
+            words[words[lengthProperty]] = ((asciiBitLength / maxWord) | 0);
+            words[words[lengthProperty]] = (asciiBitLength | 0);
+            for (j = 0; j < words[lengthProperty];) {
+              var w = words.slice(j, j += 16); var oldHash = hash; hash = hash.slice(0, 8);
+              for (i = 0; i < 64; i++) {
+                var s0 = rightRotate(w[i - 15], 7) ^ rightRotate(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+                var s1 = rightRotate(w[i - 2], 17) ^ rightRotate(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+                var ch = (hash[4] & hash[5]) ^ (~hash[4] & hash[6]);
+                var maj = (hash[0] & hash[1]) ^ (hash[0] & hash[2]) ^ (hash[1] & hash[2]);
+                var s1h = rightRotate(hash[4], 6) ^ rightRotate(hash[4], 11) ^ rightRotate(hash[4], 25);
+                var s0h = rightRotate(hash[0], 2) ^ rightRotate(hash[0], 13) ^ rightRotate(hash[0], 22);
+                var t1 = (i < 16 ? w[i] : (w[i] = (w[i - 16] + s0 + w[i - 7] + s1) | 0)) + hash[7] + s1h + ch + k[i];
+                var t2 = s0h + maj;
+                hash = [(t1 + t2) | 0].concat(hash); hash[4] = (hash[4] + t1) | 0;
+              }
+              for (i = 0; i < 8; i++) hash[i] = (hash[i] + oldHash[i]) | 0;
+            }
+            for (i = 0; i < 8; i++) {
+              for (var b = 3; b >= 0; b--) {
+                var byteVal = (hash[i] >> (b * 8)) & 255;
+                result += ((byteVal < 16 ? '0' : '') + byteVal.toString(16));
+              }
+            }
+            return result;
+          }
+
+          var devResContent = context.getVariable("getDevUserRes.content");
+          var devUserFound = false;
+          if (devResContent) {
+            try {
+              var dev = JSON.parse(devResContent);
+              if (dev.email) devUserFound = true;
+            } catch (e) {}
+          }
+
+          if (!devUserFound) {
+            context.setVariable("delete_valid", "false");
+            context.setVariable("delete_error_message", "Account not found or invalid credentials.");
+            return;
+          }
+
+          var inputPassword = context.getVariable("request.formparam.password") || "";
+          var storedHash = "";
+          var storageType = context.getVariable("password_storage_type");
+
+          if (storageType === "secret-manager") {
+            var smRes = context.getVariable("getSecretRes.content");
+            if (smRes) {
+              try {
+                var smData = JSON.parse(smRes);
+                var b64Data = smData.payload && smData.payload.data;
+                if (b64Data) {
+                  storedHash = b64Dec(b64Data).trim();
+                }
+              } catch (smErr) {}
+            }
+          } else {
+            storedHash = (context.getVariable("private.stored_password_hash") || "").trim();
+          }
+
+          if (!storedHash || storedHash.indexOf(":") === -1) {
+            context.setVariable("delete_valid", "false");
+            context.setVariable("delete_error_message", "Credentials record not found.");
+            return;
+          }
+
+          var parts = storedHash.split(":");
+          var currentSalt = parts[0];
+          var expectedHash = parts[1];
+
+          if (sha256(currentSalt + ":" + inputPassword) !== expectedHash) {
+            context.setVariable("delete_valid", "false");
+            context.setVariable("delete_error_message", "Password verification failed.");
+            return;
+          }
+
+          context.setVariable("delete_valid", "true");
+
+          })();
+  - name: SC-DeleteDeveloperUser
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-DeleteDeveloperUser
+        DisplayName: SC-DeleteDeveloperUser
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: deleteDevReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: DELETE
+        Response: deleteDevRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://{apigee_api_host}/organizations/{organization.name}/developers/{delete_user_email}"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: SC-DeleteSecretManagerSecret
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-DeleteSecretManagerSecret
+        DisplayName: SC-DeleteSecretManagerSecret
+        Properties: {}
+        Request:
+          metadata:
+            clearPayload: "true"
+            variable: deleteSecretReq
+          IgnoreUnresolvedVariables: "true"
+          Set:
+            Verb: DELETE
+        Response: deleteSecretRes
+        HTTPTargetConnection:
+          Properties: {}
+          URL: "https://secretmanager.googleapis.com/v1/projects/{organization.name}/secrets/{delete_user_secret_id}"
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: AM-DeleteAccountSuccess
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-DeleteAccountSuccess
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Account Deleted</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 36px; max-width: 460px; text-align: center; }
+                  .icon { font-size: 40px; margin-bottom: 16px; }
+                  h1 { font-size: 22px; margin-bottom: 12px; color: #f9fafb; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  .btn { display: inline-block; background: #3b82f6; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <div class="icon">🗑️</div>
+                  <h1>Account Permanently Deleted</h1>
+                  <p>Your user profile and credentials for <strong>{delete_user_email}</strong> have been successfully erased from the identity provider.</p>
+                  <a href="/register-user?client_id={delete_client_id}&redirect_uri={delete_redirect_uri}" class="btn">Create New Account</a>
+                </div>
+              </body>
+              </html>
+
+  - name: AM-DeleteAccountFailure
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-DeleteAccountFailure
+        IgnoreUnresolvedVariables: "true"
+        Set:
+          StatusCode: "400"
+          ReasonPhrase: Bad Request
+          Payload:
+            metadata:
+              contentType: text/html; charset=utf-8
+            _text: |
+              <!DOCTYPE html>
+              <html>
+              <head>
+                <title>Account Deletion Failed</title>
+                <style>
+                  body { font-family: -apple-system, sans-serif; background: #0b0f19; color: #f9fafb; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+                  .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 36px; max-width: 460px; text-align: center; }
+                  h1 { color: #ef4444; font-size: 22px; margin-bottom: 12px; }
+                  p { color: #9ca3af; font-size: 14px; margin-bottom: 24px; line-height: 1.5; }
+                  a { color: #3b82f6; text-decoration: none; font-size: 14px; }
+                </style>
+              </head>
+              <body>
+                <div class="card">
+                  <h1>Deletion Error</h1>
+                  <p>{delete_error_message}</p>
+                  <a href="/delete-account?client_id={delete_client_id}&redirect_uri={delete_redirect_uri}">Try Again</a>
+                </div>
+              </body>
+              </html>
   - name: JS-ExtractTokenParams
     type: Javascript
     content:
@@ -1114,6 +3324,35 @@ policies:
         DisplayName: JS-ExtractTokenParams
         Properties: {}
         Source: |
+          (function() {
+          function b64Dec(str) {
+            var chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+            str = String(str).replace(/[^A-Za-z0-9\+\/\=]/g, "");
+            var bytes = [];
+            var idx = 0;
+            while (idx < str.length) {
+              var e1 = chars.indexOf(str.charAt(idx++));
+              var e2 = chars.indexOf(str.charAt(idx++));
+              var e3 = chars.indexOf(str.charAt(idx++));
+              var e4 = chars.indexOf(str.charAt(idx++));
+              var c1 = (e1 << 2) | (e2 >> 4);
+              var c2 = ((e2 & 15) << 4) | (e3 >> 2);
+              var c3 = ((e3 & 3) << 6) | e4;
+              bytes.push(c1);
+              if (e3 !== 64) bytes.push(c2);
+              if (e4 !== 64) bytes.push(c3);
+            }
+            var out = "";
+            var i = 0;
+            while (i < bytes.length) {
+              var b1 = bytes[i++];
+              if (b1 < 128) out += String.fromCharCode(b1);
+              else if (b1 > 191 && b1 < 224) { var b2 = bytes[i++]; out += String.fromCharCode(((b1 & 31) << 6) | (b2 & 63)); }
+              else { var b2 = bytes[i++]; var b3 = bytes[i++]; out += String.fromCharCode(((b1 & 15) << 12) | ((b2 & 63) << 6) | (b3 & 63)); }
+            }
+            return out;
+          }
+
           var grantType = (context.getVariable("request.formparam.grant_type") || "").trim();
           var code = (context.getVariable("request.formparam.code") || "").trim();
           var codeVerifier = (context.getVariable("request.formparam.code_verifier") || "").trim();
@@ -1123,18 +3362,11 @@ policies:
           var refreshToken = (context.getVariable("request.formparam.refresh_token") || "").trim();
           var scope = (context.getVariable("request.formparam.scope") || "").trim();
 
-          // Check Basic Authorization header for client credentials
           var authHeader = context.getVariable("request.header.Authorization") || "";
           if (authHeader.indexOf("Basic ") === 0) {
             try {
               var encoded = authHeader.substring(6).trim();
-              // Pure JS Base64 decode
-              var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-              var str = String(encoded).replace(/=+$/, '');
-              var decoded = '';
-              for (var bc = 0, bs, buffer, idx = 0; buffer = str.charAt(idx++); ~buffer && (bs = bc % 4 ? bs * 64 + buffer : buffer, bc++ % 4) ? decoded += String.fromCharCode(255 & bs >> (-2 * bc & 6)) : 0) {
-                buffer = chars.indexOf(buffer);
-              }
+              var decoded = b64Dec(encoded);
               var colonIdx = decoded.indexOf(":");
               if (colonIdx > -1) {
                 if (!clientId) clientId = decoded.substring(0, colonIdx);
@@ -1170,6 +3402,7 @@ policies:
             context.setVariable("cimd_client_id", "");
             context.setVariable("client_id_to_lookup", clientId);
           }
+          })();
 
   - name: LC-LookupCode
     type: LookupCache
@@ -1178,7 +3411,7 @@ policies:
         metadata:
           name: LC-LookupCode
         CacheKey:
-          Prefix: OAuth21-Code
+          Prefix: OAuth21-AuthCode
           KeyFragment:
             metadata:
               ref: auth_code
@@ -1209,7 +3442,6 @@ policies:
         DisplayName: JS-VerifyTokenRequest
         Properties: {}
         Source: |
-          // Pure JS SHA-256 for PKCE S256 validation
           function sha256_base64url(ascii) {
             function rotateRight(n, x) { return (n >>> x) | (n << (32 - x)); }
             var h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
@@ -1311,11 +3543,16 @@ policies:
                 }
 
                 if (!error) {
+                  var userFullName = (codeData.user_first_name ? (codeData.user_first_name + " " + codeData.user_last_name).trim() : codeData.user_name) || "User";
                   context.setVariable("token_issuer", issuer);
                   context.setVariable("token_client_id", codeData.client_id);
-                  context.setVariable("token_subject", codeData.username || codeData.client_id);
-                  context.setVariable("token_email", codeData.username + "@example.com");
-                  context.setVariable("token_name", codeData.username || "MCP User");
+                  context.setVariable("token_subject", codeData.user_id || codeData.user_email || codeData.username);
+                  context.setVariable("token_email", codeData.user_email || (codeData.username ? codeData.username + "@example.com" : ""));
+                  context.setVariable("token_email_verified", "true");
+                  context.setVariable("token_name", userFullName);
+                  context.setVariable("token_user_first_name", codeData.user_first_name || "");
+                  context.setVariable("token_user_last_name", codeData.user_last_name || "");
+                  context.setVariable("token_user_username", codeData.user_name || codeData.username || "");
                   var scope = codeData.scope || "mcp";
                   context.setVariable("token_scope", scope);
                   context.setVariable("token_type_claim", "Bearer");
@@ -1347,7 +3584,11 @@ policies:
                   context.setVariable("token_client_id", rData.client_id);
                   context.setVariable("token_subject", rData.username || rData.client_id);
                   context.setVariable("token_email", rData.email || (rData.username + "@example.com"));
-                  context.setVariable("token_name", rData.name || rData.username || "MCP User");
+                  context.setVariable("token_email_verified", "true");
+                  context.setVariable("token_name", rData.name || rData.username || "User");
+                  context.setVariable("token_user_first_name", rData.given_name || "");
+                  context.setVariable("token_user_last_name", rData.family_name || "");
+                  context.setVariable("token_user_username", rData.preferred_username || rData.username || "");
                   var rScope = rData.scope || "mcp";
                   context.setVariable("token_scope", rScope);
                   context.setVariable("token_type_claim", "Bearer");
@@ -1363,22 +3604,43 @@ policies:
             }
           } else if (grantType === "client_credentials") {
             var ccClientId = context.getVariable("token_client_id");
+            var ccClientSecret = context.getVariable("token_client_secret");
             var ccScope = context.getVariable("token_scope_req") || "mcp";
 
             if (!ccClientId) {
               error = "invalid_client";
               errorDesc = "client_id is required for client_credentials grant.";
             } else {
-              context.setVariable("token_issuer", issuer);
-              context.setVariable("token_client_id", ccClientId);
-              context.setVariable("token_subject", ccClientId);
-              context.setVariable("token_email", ccClientId + "@service.apigee.internal");
-              context.setVariable("token_name", ccClientId);
-              context.setVariable("token_scope", ccScope);
-              context.setVariable("token_type_claim", "Bearer");
-              context.setVariable("token_auth_time", String(Math.floor(Date.now() / 1000)));
-              context.setVariable("token_scope_has_openid", "false");
-              context.setVariable("token_generation_allowed", "true");
+              var clientCached = context.getVariable("client_record_cached");
+              var kvmClient = context.getVariable("kvm_client_record");
+              var clientRaw = clientCached || kvmClient;
+
+              if (clientRaw) {
+                try {
+                  var cData = JSON.parse(clientRaw);
+                  if (cData.client_secret && ccClientSecret && cData.client_secret !== ccClientSecret) {
+                    error = "invalid_client";
+                    errorDesc = "client_secret mismatch for client_credentials grant.";
+                  }
+                } catch (eCC) {}
+              }
+
+              if (!error) {
+                context.setVariable("token_issuer", issuer);
+                context.setVariable("token_client_id", ccClientId);
+                context.setVariable("token_subject", ccClientId);
+                context.setVariable("token_email", ccClientId + "@service.apigee.internal");
+                context.setVariable("token_email_verified", "true");
+                context.setVariable("token_name", ccClientId);
+                context.setVariable("token_user_first_name", ccClientId);
+                context.setVariable("token_user_last_name", "Service");
+                context.setVariable("token_user_username", ccClientId);
+                context.setVariable("token_scope", ccScope);
+                context.setVariable("token_type_claim", "Bearer");
+                context.setVariable("token_auth_time", String(Math.floor(Date.now() / 1000)));
+                context.setVariable("token_scope_has_openid", "false");
+                context.setVariable("token_generation_allowed", "true");
+              }
             }
           } else {
             error = "unsupported_grant_type";
@@ -1411,7 +3673,7 @@ policies:
         metadata:
           name: IC-InvalidateCode
         CacheKey:
-          Prefix: OAuth21-Code
+          Prefix: OAuth21-AuthCode
           KeyFragment:
             metadata:
               ref: auth_code
@@ -1465,6 +3727,15 @@ policies:
                 name: name
                 ref: token_name
             - metadata:
+                name: given_name
+                ref: token_user_first_name
+            - metadata:
+                name: family_name
+                ref: token_user_last_name
+            - metadata:
+                name: preferred_username
+                ref: token_user_username
+            - metadata:
                 name: token_type
                 ref: token_type_claim
         OutputVariable: token_access_token
@@ -1497,8 +3768,20 @@ policies:
                 name: email
                 ref: token_email
             - metadata:
+                name: email_verified
+                ref: token_email_verified
+            - metadata:
                 name: name
                 ref: token_name
+            - metadata:
+                name: given_name
+                ref: token_user_first_name
+            - metadata:
+                name: family_name
+                ref: token_user_last_name
+            - metadata:
+                name: preferred_username
+                ref: token_user_username
             - metadata:
                 name: auth_time
                 ref: token_auth_time
@@ -1542,6 +3825,9 @@ policies:
               "sub": context.getVariable("token_subject"),
               "email": context.getVariable("token_email"),
               "name": context.getVariable("token_name"),
+              "given_name": context.getVariable("token_user_first_name"),
+              "family_name": context.getVariable("token_user_last_name"),
+              "preferred_username": context.getVariable("token_user_username"),
               "scope": context.getVariable("token_scope"),
               "iss": context.getVariable("token_issuer"),
               "exp": Math.floor(Date.now() / 1000) + 3600,
@@ -1560,6 +3846,9 @@ policies:
             "username": context.getVariable("token_subject"),
             "email": context.getVariable("token_email"),
             "name": context.getVariable("token_name"),
+            "given_name": context.getVariable("token_user_first_name"),
+            "family_name": context.getVariable("token_user_last_name"),
+            "preferred_username": context.getVariable("token_user_username"),
             "scope": context.getVariable("token_scope")
           };
           context.setVariable("new_refresh_token_data", JSON.stringify(refreshRecord));
@@ -1817,7 +4106,7 @@ policies:
         Source: |
           var tokenFormat = context.getVariable("userinfo_token_format");
           var valid = false;
-          var sub = "", name = "", email = "", scope = "";
+          var sub = "", name = "", email = "", given_name = "", family_name = "", preferred_username = "", scope = "";
 
           if (tokenFormat === "jwt") {
             var jwtValid = context.getVariable("jwt.JWT-VerifyUserInfoToken.valid") === "true" || context.getVariable("jwt.JWT-VerifyUserInfoToken.valid") === true;
@@ -1826,6 +4115,9 @@ policies:
               sub = context.getVariable("jwt.JWT-VerifyUserInfoToken.claim.subject") || "";
               name = context.getVariable("jwt.JWT-VerifyUserInfoToken.claim.name") || "";
               email = context.getVariable("jwt.JWT-VerifyUserInfoToken.claim.email") || "";
+              given_name = context.getVariable("jwt.JWT-VerifyUserInfoToken.claim.given_name") || "";
+              family_name = context.getVariable("jwt.JWT-VerifyUserInfoToken.claim.family_name") || "";
+              preferred_username = context.getVariable("jwt.JWT-VerifyUserInfoToken.claim.preferred_username") || "";
               scope = context.getVariable("jwt.JWT-VerifyUserInfoToken.claim.scope") || "";
             }
           } else if (tokenFormat === "opaque") {
@@ -1837,6 +4129,9 @@ policies:
                 sub = oData.sub || "";
                 name = oData.name || "";
                 email = oData.email || "";
+                given_name = oData.given_name || "";
+                family_name = oData.family_name || "";
+                preferred_username = oData.preferred_username || "";
                 scope = oData.scope || "";
               } catch (e) {}
             }
@@ -1844,7 +4139,16 @@ policies:
 
           context.setVariable("userinfo_valid", valid ? "true" : "false");
           if (valid) {
-            var uObj = { sub: sub, name: name, email: email, scope: scope };
+            var uObj = {
+              sub: sub,
+              name: name,
+              given_name: given_name,
+              family_name: family_name,
+              preferred_username: preferred_username,
+              email: email,
+              email_verified: true,
+              scope: scope
+            };
             context.setVariable("userinfo_response_payload", JSON.stringify(uObj, null, 2));
           }
 
@@ -1901,7 +4205,7 @@ policies:
           if (hint === "refresh_token" || token.indexOf("rt_") === 0) {
             context.setVariable("revoke_token_type", "refresh_token");
             context.setVariable("refresh_token", token);
-          } else if (hint === "code" || token.indexOf("code_") === 0) {
+          } else if (hint === "code" || token.indexOf("ac_") === 0) {
             context.setVariable("revoke_token_type", "code");
             context.setVariable("auth_code", token);
           } else if (hint === "access_token" || token.indexOf("at_") === 0) {
@@ -1944,7 +4248,7 @@ policies:
         metadata:
           name: IC-InvalidateRevokedCode
         CacheKey:
-          Prefix: OAuth21-Code
+          Prefix: OAuth21-AuthCode
           KeyFragment:
             metadata:
               ref: auth_code
