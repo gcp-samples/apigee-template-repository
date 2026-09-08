@@ -11,7 +11,7 @@ features:
   - ../features/auth-apikey-verify.yaml
   - ../features/ai-model-failover.yaml
   - ../features/ai-model-postprocess.yaml
-  - ../features/ai-auth-quota.yaml
+  - ../features/ai-token-quota.yaml
 parameters:
   - name: SimpleModel
     default: google/gemini-3.5-flash-lite
