@@ -29,6 +29,16 @@ llmOperations:
       - name: /
         methods:
           - POST
+        model: glm-5.2-maas
+    llmTokenQuota:
+      limit: "100"
+      interval: "1"
+      timeUnit: minute
+  - apiSource: REST-AI-Completions
+    operations:
+      - name: /
+        methods:
+          - POST
         model: gemini-3.8-flash
     llmTokenQuota:
       limit: "10000"

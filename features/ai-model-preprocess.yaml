@@ -19,7 +19,7 @@ parameters:
   - name: ThinkingModel
     default: anthropic/claude-opus-5
   - name: ModelRouting
-    default: "'google/*'=googlecloud-oai,'anthropic/*'=googlecloud"
+    default: "'google/*'=googlecloud-oai,'zai-org/*=googlecloud-oai','anthropic/*'=googlecloud"
   - name: ModelMapping
     default: "gemini-flash-latest=gemini-3.8-flash,gemini-2.5-flash=gemini-3.8-flash"
 defaultEndpoint:

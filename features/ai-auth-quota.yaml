@@ -34,7 +34,13 @@ defaultEndpoint:
 defaultTarget:
   name: default
   url: https://aiplatform.googleapis.com
-  flows: []
+  flows:
+    - name: EventFlow
+      mode: Response
+      steps:
+        - name: LTQ-QuotaCount
+          condition: verifyapikey.VA-VerifyKey.apiproduct.developer.llmQuota.limit != null
+            AND ai.totalTokenCount != null
   faultRules: []
 endpoints: []
 targets: []
@@ -125,7 +131,7 @@ policies:
           type: calendar
         DisplayName: LTQ-QuotaCount
         Properties: {}
-        UseQuotaConfigInApiProduct:
+        UseQuotaConfigInAPIProduct:
           metadata:
             stepName: VA-VerifyKey
         CountOnly: "true"
@@ -149,7 +155,7 @@ policies:
           type: calendar
         DisplayName: LTQ-QuotaEnforce
         Properties: {}
-        UseQuotaConfigInApiProduct:
+        UseQuotaConfigInAPIProduct:
           metadata:
             stepName: VA-VerifyKey
         EnforceOnly: "true"
