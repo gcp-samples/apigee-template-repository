@@ -21,7 +21,7 @@ parameters:
   default: '{organization.name}'
 - name: SampleObject
   description: Sample JSON object defining the schema for documents in the collection
-  default: '{\"name\": \"The Red and The Black\", \"author\": \"Stendhal\"}'
+  default: '{\"title\": \"The Red and The Black\", \"author\": \"Stendhal\"}'
 endpoints:
 - name: default
   basePath: /{CollectionName}
