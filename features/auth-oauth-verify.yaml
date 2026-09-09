@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
 gateway: apigee
 schemaVersion: 1.0.0
-name: auth-oauth21-verify
+name: auth-oauth-verify
 displayName: OAuth 2.1 Token Verification & Protected Resource
 type: feature
 description: Secures RESTful API and MCP server proxies using OAuth 2.1 Bearer token verification supporting Apigee native opaque tokens, symmetric HS256 JWTs, and asymmetric JWKS tokens from external IdPs (Entra ID, Okta, Auth0), with RFC 9728 Protected Resource Metadata, scope enforcement, and identity propagation.
