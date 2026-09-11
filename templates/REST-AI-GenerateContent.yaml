@@ -7,6 +7,7 @@ features:
   - ../features/ai-endpoint-content.yaml
   - ../features/ai-target-googlecloud.yaml
   - ../features/ai-model-preprocess.yaml
+  - ../features/ai-model-failover.yaml
   - ../features/ai-model-postprocess.yaml
 parameters:
   - name: SimpleModel
@@ -18,9 +19,9 @@ parameters:
   - name: ThinkingModel
     default: google/gemini-3.7-flash
   - name: ModelRouting
-    default: "'google/*'=googlecloud-oai,'anthropic/*'=googlecloud"
+    default: "'google/*'=googlecloud"
   - name: ModelMapping
-    default: gemini-flash-latest=gemini-3.7-flash,gemini-2.5-flash=gemini-3.7-flash
+    default: gemini-flash-latest=gemini-3.8-flash,gemini-2.5-flash=gemini-3.8-flash
   - name: GoogleCloudProject
     default: "{organization.name}"
 endpoints:

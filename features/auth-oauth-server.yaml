@@ -373,45 +373,52 @@ policies:
         DisplayName: JS-InitOAuthEnv
         Properties: {}
         Source: |
-          var paramIssuer = (context.getVariable("ISSUER_URL") || "").trim();
+          var paramIssuer = (context.getVariable("ISSUER_URL") || "{ISSUER_URL}" || "").trim();
+          if (paramIssuer.indexOf("{") === 0) paramIssuer = "";
           var scheme = context.getVariable("client.scheme") || "https";
           var host = context.getVariable("request.header.host") || "localhost";
           var computedIssuer = paramIssuer || (scheme + "://" + host);
 
           context.setVariable("oauth_issuer_url", computedIssuer);
 
-          var apiHost = (context.getVariable("APIGEE_API_HOST") || "apigee.googleapis.com/v1").trim();
+          var apiHost = (context.getVariable("APIGEE_API_HOST") || "{APIGEE_API_HOST}" || "apigee.googleapis.com/v1").trim();
+          if (apiHost.indexOf("{") === 0) apiHost = "apigee.googleapis.com/v1";
           apiHost = apiHost.replace(/^https?:\/\//i, "");
           context.setVariable("apigee_api_host", apiHost);
 
-          var devEmail = (context.getVariable("DEFAULT_DEVELOPER_EMAIL") || "mcp-clients@apigee.internal").trim();
+          var devEmail = (context.getVariable("DEFAULT_DEVELOPER_EMAIL") || "{DEFAULT_DEVELOPER_EMAIL}" || "mcp-clients@apigee.internal").trim();
+          if (devEmail.indexOf("{") === 0) devEmail = "mcp-clients@apigee.internal";
           context.setVariable("default_dev_email", devEmail);
 
-          var apiProduct = (context.getVariable("DEFAULT_API_PRODUCT") || "").trim();
+          var apiProduct = (context.getVariable("DEFAULT_API_PRODUCT") || "{DEFAULT_API_PRODUCT}" || "").trim();
+          if (apiProduct.indexOf("{") === 0) apiProduct = "";
           context.setVariable("default_api_product", apiProduct);
 
-          var jwtSecret = (context.getVariable("JWT_SIGNING_SECRET") || "apigee-oauth21-default-secure-secret-key-32bytes-min").trim();
+          var jwtSecret = (context.getVariable("JWT_SIGNING_SECRET") || "{JWT_SIGNING_SECRET}" || "apigee-oauth21-default-secure-secret-key-32bytes-min").trim();
+          if (jwtSecret.indexOf("{") === 0) jwtSecret = "apigee-oauth21-default-secure-secret-key-32bytes-min";
           context.setVariable("private.jwt_signing_secret", jwtSecret);
 
-          var tokenFormatParam = (context.getVariable("ACCESS_TOKEN_FORMAT") || "jwt").trim().toLowerCase();
-          if (tokenFormatParam !== "opaque" && tokenFormatParam !== "auto") {
+          var tokenFormatParam = (context.getVariable("ACCESS_TOKEN_FORMAT") || "{ACCESS_TOKEN_FORMAT}" || "jwt").trim().toLowerCase();
+          if (tokenFormatParam.indexOf("{") === 0 || (tokenFormatParam !== "opaque" && tokenFormatParam !== "auto")) {
             tokenFormatParam = "jwt";
           }
           context.setVariable("oauth_token_format_pref", tokenFormatParam);
 
-          var supportedScopes = (context.getVariable("SUPPORTED_SCOPES") || "mcp openid profile email read write").trim();
+          var supportedScopes = (context.getVariable("SUPPORTED_SCOPES") || "{SUPPORTED_SCOPES}" || "mcp openid profile email read write").trim();
+          if (supportedScopes.indexOf("{") === 0) supportedScopes = "mcp openid profile email read write";
           context.setVariable("supported_scopes", supportedScopes);
 
-          var pwdStorage = (context.getVariable("PASSWORD_STORAGE") || "kvm").trim().toLowerCase();
+          var pwdStorage = (context.getVariable("PASSWORD_STORAGE") || "{PASSWORD_STORAGE}" || "kvm").trim().toLowerCase();
           if (pwdStorage !== "secret-manager") {
             pwdStorage = "kvm";
           }
           context.setVariable("password_storage_type", pwdStorage);
 
-          var enableMfa = (context.getVariable("ENABLE_MFA") || "false").trim().toLowerCase();
+          var enableMfa = (context.getVariable("ENABLE_MFA") || "{ENABLE_MFA}" || "false").trim().toLowerCase();
           context.setVariable("system_mfa_enabled", enableMfa === "true" ? "true" : "false");
 
-          var mfaIssuer = (context.getVariable("MFA_ISSUER_NAME") || "ApigeeIdP").trim();
+          var mfaIssuer = (context.getVariable("MFA_ISSUER_NAME") || "{MFA_ISSUER_NAME}" || "ApigeeIdP").trim();
+          if (mfaIssuer.indexOf("{") === 0) mfaIssuer = "ApigeeIdP";
           context.setVariable("mfa_issuer_name", mfaIssuer);
 
   - name: JS-BuildProtectedResourceMetadata

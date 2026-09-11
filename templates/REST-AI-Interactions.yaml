@@ -18,7 +18,7 @@ parameters:
   - name: ThinkingModel
     default: google/gemini-3.7-flash
   - name: ModelRouting
-    default: "'google/*'=googlecloud-oai,'anthropic/*'=googlecloud"
+    default: "'google/*'=gemini"
   - name: ModelMapping
     default: gemini-flash-latest=gemini-3.7-flash,gemini-2.5-flash=gemini-3.7-flash
 endpoints:

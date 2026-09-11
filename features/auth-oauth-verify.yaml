@@ -163,8 +163,10 @@ policies:
         DisplayName: JS-InitMcpEnv
         Properties: {}
         Source: |
-          var paramAuthServer = (context.getVariable("AUTH_SERVER_URL") || "").trim();
-          var paramResource = (context.getVariable("RESOURCE_URL") || "").trim();
+          var paramAuthServer = (context.getVariable("AUTH_SERVER_URL") || "{AUTH_SERVER_URL}" || "").trim();
+          if (paramAuthServer.indexOf("{") === 0) paramAuthServer = "";
+          var paramResource = (context.getVariable("RESOURCE_URL") || "{RESOURCE_URL}" || "").trim();
+          if (paramResource.indexOf("{") === 0) paramResource = "";
           var scheme = context.getVariable("client.scheme") || "https";
           var host = context.getVariable("request.header.host") || "localhost";
           var basePath = context.getVariable("proxy.basepath") || "";
@@ -176,34 +178,44 @@ policies:
           context.setVariable("oauth_auth_server_url", computedAuthServer);
           context.setVariable("oauth_protected_resource_url", computedAuthServer + "/.well-known/oauth-protected-resource");
 
-          var paramJwks = (context.getVariable("JWKS_URI") || "").trim();
+          var paramJwks = (context.getVariable("JWKS_URI") || "{JWKS_URI}" || "").trim();
+          if (paramJwks.indexOf("{") === 0) paramJwks = "";
           context.setVariable("jwt_jwks_uri", paramJwks);
 
-          var expectedIss = (context.getVariable("EXPECTED_ISSUER") || "").trim();
+          var expectedIss = (context.getVariable("EXPECTED_ISSUER") || "{EXPECTED_ISSUER}" || "").trim();
+          if (expectedIss.indexOf("{") === 0) expectedIss = "";
           context.setVariable("expected_issuer", expectedIss);
 
-          var expectedAud = (context.getVariable("EXPECTED_AUDIENCE") || "").trim();
+          var expectedAud = (context.getVariable("EXPECTED_AUDIENCE") || "{EXPECTED_AUDIENCE}" || "").trim();
+          if (expectedAud.indexOf("{") === 0) expectedAud = "";
           context.setVariable("expected_audience", expectedAud);
 
-          var requiredScopes = (context.getVariable("REQUIRED_SCOPES") || "mcp").trim();
+          var requiredScopes = (context.getVariable("REQUIRED_SCOPES") || "{REQUIRED_SCOPES}" || "mcp").trim();
+          if (requiredScopes.indexOf("{") === 0) requiredScopes = "mcp";
           context.setVariable("mcp_required_scopes", requiredScopes);
 
-          var jwtSecret = (context.getVariable("JWT_SIGNING_SECRET") || "apigee-oauth21-default-secure-secret-key-32bytes-min").trim();
+          var jwtSecret = (context.getVariable("JWT_SIGNING_SECRET") || "{JWT_SIGNING_SECRET}" || "apigee-oauth21-default-secure-secret-key-32bytes-min").trim();
+          if (jwtSecret.indexOf("{") === 0) jwtSecret = "apigee-oauth21-default-secure-secret-key-32bytes-min";
           context.setVariable("private.jwt_signing_secret", jwtSecret);
 
-          var propagateHeaders = (context.getVariable("PROPAGATE_IDENTITY_HEADERS") || "true").trim();
+          var propagateHeaders = (context.getVariable("PROPAGATE_IDENTITY_HEADERS") || "{PROPAGATE_IDENTITY_HEADERS}" || "true").trim();
+          if (propagateHeaders.indexOf("{") === 0) propagateHeaders = "true";
           context.setVariable("propagate_headers", propagateHeaders);
 
-          var resourceDoc = (context.getVariable("RESOURCE_DOCUMENTATION") || "").trim();
+          var resourceDoc = (context.getVariable("RESOURCE_DOCUMENTATION") || "{RESOURCE_DOCUMENTATION}" || "").trim();
+          if (resourceDoc.indexOf("{") === 0) resourceDoc = "";
           context.setVariable("oauth_resource_doc", resourceDoc);
 
-          var allowApiKeys = (context.getVariable("ALLOW_API_KEYS") || "true").trim().toLowerCase();
+          var allowApiKeys = (context.getVariable("ALLOW_API_KEYS") || "{ALLOW_API_KEYS}" || "true").trim().toLowerCase();
+          if (allowApiKeys.indexOf("{") === 0) allowApiKeys = "true";
           context.setVariable("allow_api_keys", allowApiKeys);
 
-          var googleTokenInfoUrl = (context.getVariable("GOOGLE_TOKENINFO_URL") || "oauth2.googleapis.com/tokeninfo").trim().replace(/^https?:\/\//i, "");
+          var googleTokenInfoUrl = (context.getVariable("GOOGLE_TOKENINFO_URL") || "{GOOGLE_TOKENINFO_URL}" || "oauth2.googleapis.com/tokeninfo").trim().replace(/^https?:\/\//i, "");
+          if (googleTokenInfoUrl.indexOf("{") === 0) googleTokenInfoUrl = "oauth2.googleapis.com/tokeninfo";
           context.setVariable("google_tokeninfo_host_path", googleTokenInfoUrl);
 
-          var providersJson = (context.getVariable("PROVIDERS_JSON") || "[]").trim();
+          var providersJson = (context.getVariable("PROVIDERS_JSON") || "{PROVIDERS_JSON}" || "[]").trim();
+          if (providersJson.indexOf("{") === 0) providersJson = "[]";
           context.setVariable("oauth_providers_json", providersJson);
 
   - name: JS-ExtractAndClassifyToken

@@ -17,6 +17,9 @@ gcloud services enable aiplatform.googleapis.com --project="${PROJECT_ID}" >/dev
 # 2. Service Account Setup (Fault-tolerant)
 SA_NAME="apigee-service"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+export APIGEE_SA=$SA_EMAIL
+
+export APIGEE_HOST=$(aft describe --project $GOOGLE_CLOUD_PROJECT -f json | jq --raw-output ".environmentGroups[] | select(any(.attachments[]; .environment == \"$APIGEE_ENV\")) | .hostnames[0]")
 
 if ! gcloud iam service-accounts describe "${SA_EMAIL}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
   echo "Creating service account '${SA_NAME}'..."
@@ -45,6 +48,7 @@ if [ -n "$PROJECT_NUMBER" ]; then
       --role="roles/iam.serviceAccountTokenCreator" \
       --project="${PROJECT_ID}" >/dev/null 2>&1 || true
 fi
+APIGEE_SA=$SA_EMAIL
 
 # 4. Access Token for Apigee Management API calls
 ACCESS_TOKEN=$(gcloud auth application-default print-access-token 2>/dev/null || gcloud auth print-access-token 2>/dev/null || true)

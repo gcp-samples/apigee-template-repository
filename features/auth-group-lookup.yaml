@@ -1,0 +1,189 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
+gateway: apigee
+schemaVersion: 1.0.0
+type: feature
+parameters: []
+defaultEndpoint:
+  name: default
+  basePath: /ai-auth
+  routes:
+    - name: default
+      target: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: JS-ProcessGroupForApp
+          condition: request.header.x-ai-key == null AND request.header.x-ai-group != null
+        - name: SC-GetDeveloperApps
+          condition: request.header.x-ai-key == null AND request.header.x-ai-group != null
+            AND ai.developerEmail != null
+        - name: JS-ParseDeveloperAppKey
+          condition: request.header.x-ai-key == null AND developerAppsResponse.content !=
+            null
+        - name: VA-VerifyKey
+          condition: token.type != "google"
+        - name: AM-RemoveKey
+  faultRules: []
+  defaultFaultRule:
+    name: default-fault
+    steps:
+      - name: AM-Unauthorized
+        condition: fault.name == "InvalidApiKey" OR fault.name == "FailedToResolveAPIKey"
+defaultTarget:
+  name: default
+  url: https://aiplatform.googleapis.com
+  flows: []
+  faultRules: []
+endpoints: []
+targets: []
+policies:
+  - name: JS-ProcessGroupForApp
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ProcessGroupForApp
+        DisplayName: JS-ProcessGroupForApp
+        Properties: {}
+        Source: |
+          var groupHeader = context.getVariable("request.header.x-ai-group");
+          if (groupHeader) {
+            var groupParts = groupHeader.split(":");
+            var developerEmail = groupParts[0].trim();
+            var appTargetName = (groupParts.length > 1) ? groupParts[1].trim() : null;
+
+            context.setVariable("ai.developerEmail", developerEmail);
+            if (appTargetName) {
+              context.setVariable("ai.appTargetName", appTargetName);
+            }
+          }
+  - name: SC-GetDeveloperApps
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          name: SC-GetDeveloperApps
+        DisplayName: SC-GetDeveloperApps
+        Properties: {}
+        Request:
+          variable: developerAppsRequest
+          IgnoreUnresolvedVariables: "true"
+        Response: developerAppsResponse
+        HTTPTargetConnection:
+          Properties: {}
+          URL: https://apigee.googleapis.com/v1/organizations/{organization.name}/developers/{ai.developerEmail}/apps?expand=true
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+  - name: JS-ParseDeveloperAppKey
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "true"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ParseDeveloperAppKey
+        DisplayName: JS-ParseDeveloperAppKey
+        Properties: {}
+        Source: |
+          var responseContent = context.getVariable("developerAppsResponse.content");
+          if (responseContent) {
+            try {
+              var appsData = JSON.parse(responseContent);
+              var appList = appsData.app || appsData.developerApp || appsData;
+              if (Array.isArray(appList) && appList.length > 0) {
+                var targetAppName = context.getVariable("ai.appTargetName");
+                var selectedApp = null;
+
+                if (targetAppName) {
+                  for (var i = 0; i < appList.length; i++) {
+                    if (appList[i].name === targetAppName) {
+                      selectedApp = appList[i];
+                      break;
+                    }
+                  }
+                }
+
+                if (!selectedApp) {
+                  selectedApp = appList[0];
+                }
+
+                if (selectedApp && selectedApp.credentials && selectedApp.credentials.length > 0) {
+                  var firstCred = selectedApp.credentials[0];
+                  var clientId = firstCred.consumerKey || firstCred.clientId || firstCred.key;
+                  if (clientId) {
+                    context.setVariable("request.header.x-ai-key", clientId);
+                    print("Successfully resolved x-ai-key from developer app " + selectedApp.name + ": " + clientId);
+                  }
+                }
+              }
+            } catch (e) {
+              print("Failed to parse developer apps response: " + e);
+            }
+          }
+  - name: AM-Unauthorized
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-Unauthorized
+        DisplayName: AM-Unauthorized
+        Properties: {}
+        Set:
+          StatusCode: "401"
+          Payload: Unauthorized.
+        IgnoreUnresolvedVariables: "true"
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: request
+  - name: AM-RemoveKey
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-RemoveKey
+        DisplayName: AM-RemoveKey
+        Properties: {}
+        Remove:
+          Headers:
+            Header:
+              metadata:
+                name: x-ai-key
+        AssignVariable:
+          Name: originalHostName
+          Ref: request.header.host
+        IgnoreUnresolvedVariables: "true"
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: request
+  - name: VA-VerifyKey
+    type: VerifyAPIKey
+    content:
+      VerifyAPIKey:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: VA-VerifyKey
+        DisplayName: VA-VerifyKey
+        Properties: {}
+        APIKey:
+          metadata:
+            ref: request.header.x-ai-key
+resources: []
+tests: []
