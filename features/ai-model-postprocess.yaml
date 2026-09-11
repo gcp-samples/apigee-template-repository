@@ -3,7 +3,7 @@ name: ai-model-postprocess
 displayName: AI Model Post Functions
 type: feature
 description: The base AI & LLM response handling with token counting and analytics.
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-model-postprocess.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories:

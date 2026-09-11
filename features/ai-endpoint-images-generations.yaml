@@ -1,16 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
 name: ai-content
-displayName: Gemini Interactions Endpoint
+displayName: AI Images Generations API Endpoint
 type: feature
-description: Feature for the Gemini Interactions Endpoint
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-interactions.yaml"
+description: Feature for the Images Generations API Endpoint
+documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-images-generations.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []
 parameters: []
 endpoints:
-  - name: interactions
-    basePath: /v1beta/interactions
+  - name: content
+    basePath: /v1/images/generations
     routes: []
     flows: []
     faultRules: []

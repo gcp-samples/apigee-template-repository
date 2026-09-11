@@ -7,7 +7,7 @@ description: Premium tier for MCP & LLM Model access.
 access: public
 approvalType: auto
 environments:
-  - dev
+  - default-dev
 proxies:
   - REST-Orders
   - REST-AI-Completions

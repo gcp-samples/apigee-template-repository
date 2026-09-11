@@ -1,11 +1,12 @@
-name: REST-AI-Messages
+name: REST-AI-Images
 type: template
-description: API template for REST-AI-Messages
+description: API template for REST-AI-Images
 gateway: apigee
 schemaVersion: 1.0.0
 features:
-  - ../features/ai-endpoint-messages.yaml
+  - ../features/ai-endpoint-images-generations.yaml
   - ../features/ai-target-googlecloud.yaml
+  - ../features/ai-target-openai.yaml
   - ../features/ai-model-preprocess.yaml
   - ../features/ai-model-postprocess.yaml
 parameters:
@@ -14,18 +15,18 @@ parameters:
   - name: SimpleModel
     default: google/gemini-3.5-flash-lite
   - name: MediumModel
-    default: google/gemini-3.7-flash
+    default: google/gemini-3.8-flash
   - name: ComplexModel
-    default: google/gemini-3.7-flash
+    default: google/gemini-3.8-flash
   - name: ThinkingModel
-    default: google/gemini-3.7-flash
+    default: anthropic/claude-opus-5
   - name: ModelRouting
-    default: "'google/*'=googlecloud-oai,'anthropic/*'=googlecloud"
+    default: "'google/*'=googlecloud,'openai/*'=openai"
   - name: ModelMapping
     default: gemini-flash-latest=gemini-3.8-flash,gemini-2.5-flash=gemini-3.8-flash
 endpoints:
-  - name: anthropic
-    basePath: /v1/messages
+  - name: content
+    basePath: /v1/images/generations
     routes: []
 targets:
   - name: googlecloud-projects
@@ -34,3 +35,5 @@ targets:
     url: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/endpoints/openapi/chat/completions
   - name: googlecloud
     url: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/publishers/{ai.provider}/models/{ai.model}:{ai.method}
+  - name: openai
+    url: https://api.openai.com

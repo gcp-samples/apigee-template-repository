@@ -2,6 +2,7 @@
 gateway: apigee
 schemaVersion: 1.0.0
 type: feature
+documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-token-quota.yaml"
 parameters: []
 defaultEndpoint:
   name: default

@@ -3,7 +3,7 @@ name: ai-failover
 displayName: AI Target Failover Handler
 type: feature
 description: Intercepts target failures in defaultFaultRule and executes failover routing to Google Cloud Vertex AI OpenAI endpoint.
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-model-failover.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories:

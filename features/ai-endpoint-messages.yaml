@@ -2,6 +2,7 @@
 gateway: apigee
 schemaVersion: 1.0.0
 type: feature
+documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-messages.yaml"
 description: Endpoint for Anthropic models.
 endpoints:
   - name: anthropic

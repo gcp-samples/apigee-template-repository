@@ -3,7 +3,7 @@ name: ai-model-preprocess
 displayName: AI Model Pre Functions
 type: feature
 description: The base AI & LLM request pre-processing with model detection and routing.
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-model-preprocess.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories:
@@ -291,6 +291,9 @@ policies:
           } else if (effectiveProvider === "google") {
             if (reqInfo.requestType === "embeddings") {
               context.setVariable("ai.method", "embedContent");
+            } else if (reqInfo.requestType === "image-generation") {
+              var m = (cleanModel || "").toLowerCase();
+              context.setVariable("ai.method", m.indexOf("imagen") !== -1 ? "predict" : "generateContent");
             } else if (reqInfo.isStreaming) {
               context.setVariable("ai.method", "streamGenerateContent");
             } else {
@@ -560,6 +563,9 @@ policies:
           } else if (provider === "google") {
             if (requestType === "embeddings") {
               context.setVariable("ai.method", "embedContent");
+            } else if (requestType === "image-generation") {
+              var m = (context.getVariable("ai.model") || "").toLowerCase();
+              context.setVariable("ai.method", m.indexOf("imagen") !== -1 ? "predict" : "generateContent");
             } else if (isStreaming) {
               context.setVariable("ai.method", "streamGenerateContent");
             } else {
@@ -1055,6 +1061,9 @@ resources:
         } else if (info.provider === "google") {
           if (info.requestType === "embeddings") {
             info.method = "embedContent";
+          } else if (info.requestType === "image-generation") {
+            var m = (info.cleanModelName || "").toLowerCase();
+            info.method = m.indexOf("imagen") !== -1 ? "predict" : "generateContent";
           } else if (info.isStreaming) {
             info.method = "streamGenerateContent";
           } else {
