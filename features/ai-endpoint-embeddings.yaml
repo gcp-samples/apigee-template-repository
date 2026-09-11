@@ -3,7 +3,7 @@ name: ai-content
 displayName: AI Embeddings API Endpoint
 type: feature
 description: Feature for the Embeddings API Endpoint
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-embeddings.yaml"
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-endpoint-embeddings.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []

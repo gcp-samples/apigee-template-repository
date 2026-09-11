@@ -3,7 +3,7 @@ name: ai-content
 displayName: Gemini Content Generation Endpoint
 type: feature
 description: Feature for the Gemini Content Generation Endpoint
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-content.yaml"
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-endpoint-content.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []

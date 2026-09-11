@@ -3,7 +3,7 @@ name: ai-content
 displayName: AI Images Generations API Endpoint
 type: feature
 description: Feature for the Images Generations API Endpoint
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-images-generations.yaml"
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-endpoint-images-generations.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []

@@ -2,7 +2,7 @@
 gateway: apigee
 schemaVersion: 1.0.0
 type: feature
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-target-gemini.yaml"
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-target-gemini.yaml"
 description: Proxy for Google Gemini models.
 defaultEndpoint:
   name: default

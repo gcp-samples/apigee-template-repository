@@ -3,7 +3,7 @@ name: ai-content
 displayName: Gemini Interactions Endpoint
 type: feature
 description: Feature for the Gemini Interactions Endpoint
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-interactions.yaml"
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-endpoint-interactions.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []

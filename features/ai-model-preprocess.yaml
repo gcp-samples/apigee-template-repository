@@ -3,7 +3,7 @@ name: ai-model-preprocess
 displayName: AI Model Pre Functions
 type: feature
 description: The base AI & LLM request pre-processing with model detection and routing.
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-model-preprocess.yaml"
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-model-preprocess.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories:

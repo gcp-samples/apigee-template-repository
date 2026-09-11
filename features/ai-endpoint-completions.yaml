@@ -3,7 +3,7 @@ name: ai-completions
 displayName: OpenAI Chat Completions API Proxy
 type: feature
 description: Feature for the OpenAI Chat Completions API
-documentation: "https://gcp-samples.github.io/apigee-template-repository/docs/?file=features/ai-endpoint-completions.yaml"
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-endpoint-completions.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []
