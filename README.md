@@ -35,6 +35,7 @@ Apigee Templates use a modular, composition-based model where self-contained **F
 - **Features (`features/*.yaml`, `features/draft/*.yaml`)**: Granular, reusable building blocks that encapsulate specific gateway capabilities (e.g., request pre-validation, protocol mediation, PII masking, token counting, or analytics logging). Each feature bundles its own policies, scripts, and execution rules.
 - **Templates (`templates/*.yaml`)**: Declarative definitions that assemble multiple features together, specify API base paths and route rules, configure dynamic parameters, and define upstream backend targets.
 - **Template Compiler (`aft` / `gcloud`)**: Resolves referenced features, merges policies and flow steps into an optimized execution pipeline, and packages the bundle into an Apigee API Proxy ready for instant deployment.
+- **Deployment & Documentation**: Templates can be deployed directly in the linked [Google Colab](https://colab.research.google.com/) notebooks (learn more about [Google Colaboratory](https://research.google.com/colaboratory/faq.html)), and the documentation page for each feature and template can be viewed via the links provided in the tables below.
 
 ---
 
@@ -50,15 +51,6 @@ An active Apigee X or Apigee hybrid instance with a configured environment and e
 ### 2. Anthropic Models Enablement
 To deploy templates or features that route to Anthropic Claude models (e.g., [`REST-AI-Messages.yaml`](templates/REST-AI-Messages.yaml) or Anthropic routes in [`REST-AI-Completions.yaml`](templates/REST-AI-Completions.yaml)), the Anthropic Claude models must be enabled in your Google Cloud project within the Gemini Enterprise Agent Platform / Vertex AI Model Garden:
 - Refer to the guide on [Enabling Anthropic Claude Models in Gemini Enterprise Agent Platform](https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/partner-models/claude) (or via [Vertex AI Model Garden](https://cloud.google.com/vertex-ai/generative-ai/docs/partner-models/use-claude)).
-
-### 3. Model Armor Default Template
-For security templates and features that leverage Google Cloud Model Armor (such as [`ai-security-modelarmor.yaml`](features/ai-security-modelarmor.yaml) utilizing the `SUP-SanitizePrompt` policy), a template named `default-ma-template` must exist in your project and region:
-- **Template Resource ID**: `projects/{project_id}/locations/{location}/templates/default-ma-template`
-- **Enable Model Armor API**:
-  ```bash
-  gcloud services enable modelarmor.googleapis.com
-  ```
-- **Create Template**: Follow the [Model Armor - Create and Manage Templates Guide](https://docs.cloud.google.com/model-armor/manage-templates) to configure your prompt/response safety filters and create `default-ma-template`.
 
 ---
 
