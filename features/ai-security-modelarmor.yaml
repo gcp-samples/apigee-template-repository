@@ -2,7 +2,7 @@ name: ai-security-modelarmor
 displayName: ai-security-modelarmor
 type: feature
 description: ai-security-modelarmor
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-security-modelarmor.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []

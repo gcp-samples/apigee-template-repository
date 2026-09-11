@@ -5,7 +5,7 @@ name: auth-oauth-server
 displayName: OAuth 2.1 & OIDC Identity Provider
 type: feature
 description: Complete OAuth 2.1 Authorization Server & OpenID Connect (OIDC) Identity Provider (IdP) supporting Apigee X developers as user store, configurable password storage (Cloud Secret Manager or KVM), client storage in KVM (OAuthClients), multi-factor authentication (authenticator apps TOTP), self-service HTML flows (sign-in, registration, password reset, delete account), Dynamic Client Registration (DCR), and PKCE.
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fauth-oauth-server.yaml"
 categories:
   - security
   - oauth2

@@ -3,7 +3,7 @@ name: security-anonymization-sdp
 displayName: Sensitive Data Protection PII Masking
 type: feature
 description: Anonymizes sensitive PII in user input using Google Cloud Sensitive Data Protection (SDP) API.
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fsecurity-anonymization-sdp.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories:

@@ -3,7 +3,7 @@ name: security-anonymization-presidio
 displayName: Presidio PII Masking
 type: feature
 description: Anonymizes sensitive PII in user input using Presidio Anonymizer service.
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fsecurity-anonymization-presidio.yaml"
 gateway: apigee
 schemaVersion: 1.0.0
 categories:

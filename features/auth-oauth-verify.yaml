@@ -5,7 +5,7 @@ name: auth-oauth-verify
 displayName: OAuth 2.1 Token Verification & Protected Resource
 type: feature
 description: Secures RESTful API and MCP server proxies using OAuth 2.1 Bearer token verification supporting Apigee native opaque tokens, symmetric HS256 JWTs, and asymmetric JWKS tokens from external IdPs (Entra ID, Okta, Auth0), with RFC 9728 Protected Resource Metadata, scope enforcement, and identity propagation.
-documentation: ""
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fauth-oauth-verify.yaml"
 categories:
   - security
   - oauth2

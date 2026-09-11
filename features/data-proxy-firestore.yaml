@@ -4,7 +4,7 @@ type: feature
 gateway: apigee
 schemaVersion: 1.0.0
 description: Configurable CRUD proxy feature for Cloud Firestore collections with automatic OpenAPI 3.2 specification generation, validation, and data conversion.
-documentation: ''
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fdata-proxy-firestore.yaml"
 categories:
 - database
 - firestore
