@@ -1,0 +1,12 @@
+<AssignMessage continueOnError="false" enabled="true" name="AM-SetHeader">
+  <DisplayName>AM-SetHeader</DisplayName>
+  <Properties/>
+  <Set>
+    <Headers>
+      <Header name="x-testheader">{propertyset.helloworld.MESSAGE}</Header>
+    </Headers>
+    <Path/>
+  </Set>
+  <IgnoreUnresolvedVariables>true</IgnoreUnresolvedVariables>
+  <AssignTo createNew="false" transport="http" type="response"/>
+</AssignMessage>

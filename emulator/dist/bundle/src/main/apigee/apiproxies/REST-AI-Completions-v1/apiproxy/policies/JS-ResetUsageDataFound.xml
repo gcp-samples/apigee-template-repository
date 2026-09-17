@@ -1,6 +1,0 @@
-<Javascript continueOnError="false" enabled="true" timeLimit="200" name="JS-ResetUsageDataFound">
-  <DisplayName>JS-ResetUsageDataFound</DisplayName>
-  <Properties/>
-  <Source>context.setVariable("ai.usageDataFound", "false");
-</Source>
-</Javascript>

@@ -1,0 +1,106 @@
+name: TestProxy
+displayName: Hello World Proxy
+type: proxy
+gateway: apigee
+schemaVersion: 1.0.0
+categories: []
+description: API proxy for HelloWorld-v1
+documentation: ""
+parameters:
+  - name: response-helloworld.helloworld.MESSAGE
+    displayName: MESSAGE
+    description: Configuration input for MESSAGE
+    default: Hello world!
+    examples:
+      - Hello mars!
+      - Hello internet!
+endpoints:
+  - name: default
+    basePath: /testproxy
+    routes:
+      - name: default
+        target: default
+    flows:
+      - name: PostFlow
+        mode: Response
+        steps:
+          - name: JS-AddHelloWorld
+          - name: AM-SetHeader
+    faultRules: []
+targets:
+  - name: default
+    url: https://mocktarget.apigee.net
+    flows: []
+    faultRules: []
+    httpTargetConnection:
+      Properties: {}
+      URL: https://mocktarget.apigee.net
+policies:
+  - name: AM-SetHeader
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-SetHeader
+        DisplayName: AM-SetHeader
+        Properties: {}
+        Set:
+          Headers:
+            Header:
+              metadata:
+                name: x-testheader
+              _text: "{propertyset.helloworld.MESSAGE}"
+          Path: {}
+        IgnoreUnresolvedVariables: "true"
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: response
+  - name: JS-AddHelloWorld
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-AddHelloWorld
+        DisplayName: JS-AddHelloWorld
+        Properties: {}
+        ResourceURL: jsc://hello-world.js
+resources:
+  - name: helloworld.properties
+    type: properties
+    content: |
+      MESSAGE=Hello world!
+  - name: hello-world.js
+    type: jsc
+    content: |-
+      var responseText = response.content;
+      if (!responseText) responseText = "";
+
+      var responseObject = undefined;
+
+      try {
+        responseObject = JSON.parse(responseText);
+      } catch(e) {
+        print("Could not parse JSON.");
+      }
+
+      var message = context.getVariable("request.queryparam.message");
+      if (!message)
+        message = context.getVariable("propertyset.helloworld.MESSAGE");
+      if (!message)
+        message = "Hello world!";
+
+      if (responseObject) {
+        responseObject["message"] = message;
+        context.setVariable("response.content", JSON.stringify(responseObject));
+      } else {
+        responseText = responseText + " " + message;
+        context.setVariable("response.content", responseText);
+      }
+tests: []

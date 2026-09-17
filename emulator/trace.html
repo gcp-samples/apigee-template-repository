@@ -3,20 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apigee Emulator Trace Visualizer</title>
+  <title>Apigee Trace Visualizer</title>
   <style>
     :root {
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --bg-card: #334155;
+      --bg-primary: #090d16;
+      --bg-secondary: #111827;
+      --bg-card: #1f2937;
+      --bg-card-hover: #374151;
+      --bg-input: #0b1120;
+      --border: #374151;
+      --border-focus: #38bdf8;
       --accent: #38bdf8;
       --accent-hover: #0284c7;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --border: #475569;
+      --accent-dim: rgba(56, 189, 248, 0.15);
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
       --success: #22c55e;
+      --success-dim: rgba(34, 197, 94, 0.15);
       --error: #ef4444;
+      --error-dim: rgba(239, 68, 68, 0.15);
       --warning: #f59e0b;
+      --warning-dim: rgba(245, 158, 11, 0.15);
+      --purple: #c084fc;
+      --purple-dim: rgba(192, 132, 252, 0.15);
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,69 +42,150 @@
       overflow: hidden;
     }
 
+    /* Top Navigation Header */
     header {
       background: var(--bg-secondary);
       border-bottom: 1px solid var(--border);
-      padding: 12px 20px;
+      padding: 10px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 16px;
+      z-index: 10;
     }
 
-    .title {
-      font-size: 1.1rem;
-      font-weight: 600;
-      color: var(--text-main);
-    }
-
-    .controls {
+    .brand {
       display: flex;
-      gap: 12px;
       align-items: center;
+      gap: 12px;
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .source-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      display: none;
+    }
+
+    .source-badge.cloud {
+      background: var(--purple-dim);
+      color: var(--purple);
+      border-color: rgba(192, 132, 252, 0.3);
+      display: inline-block;
+    }
+
+    .source-badge.emulator {
+      background: var(--success-dim);
+      color: var(--success);
+      border-color: rgba(34, 197, 94, 0.3);
+      display: inline-block;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       background: var(--accent);
-      color: #0f172a;
+      color: #090d16;
       font-weight: 600;
-      padding: 6px 16px;
+      padding: 7px 16px;
       border-radius: 6px;
       cursor: pointer;
       border: none;
       font-size: 0.85rem;
-      transition: background 0.2s;
+      transition: all 0.15s ease;
+      user-select: none;
+      text-decoration: none;
     }
 
     .btn:hover {
       background: var(--accent-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--text-muted);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 0.78rem;
     }
 
     input[type="file"] {
       display: none;
     }
 
-    .container {
+    /* Main Container */
+    .app-container {
       display: flex;
       flex: 1;
       overflow: hidden;
+      position: relative;
     }
 
+    /* Sidebar */
     .sidebar {
-      width: 300px;
+      width: 340px;
+      min-width: 280px;
       background: var(--bg-secondary);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
     }
 
-    .sidebar-header {
+    .sidebar-toolbar {
       padding: 12px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
       border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      color: var(--text-main);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
     }
 
     .message-list {
@@ -102,10 +194,11 @@
     }
 
     .message-item {
-      padding: 12px 16px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
       transition: background 0.15s;
+      position: relative;
     }
 
     .message-item:hover {
@@ -117,121 +210,360 @@
       border-left: 4px solid var(--accent);
     }
 
+    .msg-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
     .msg-badge {
       display: inline-block;
       padding: 2px 6px;
       border-radius: 4px;
-      font-size: 0.7rem;
-      font-weight: bold;
-      margin-bottom: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
     }
 
-    .badge-200 { background: rgba(34, 197, 94, 0.2); color: var(--success); }
-    .badge-400, .badge-500 { background: rgba(239, 68, 68, 0.2); color: var(--error); }
+    .badge-verb {
+      background: rgba(56, 189, 248, 0.2);
+      color: var(--accent);
+      margin-right: 6px;
+    }
 
-    .msg-title {
-      font-size: 0.9rem;
+    .badge-2xx { background: var(--success-dim); color: var(--success); }
+    .badge-3xx { background: var(--accent-dim); color: var(--accent); }
+    .badge-4xx, .badge-5xx { background: var(--error-dim); color: var(--error); }
+    .badge-unknown { background: rgba(148, 163, 184, 0.2); color: var(--text-muted); }
+
+    .msg-uri {
+      font-size: 0.88rem;
       font-weight: 600;
       color: var(--text-main);
       word-break: break-all;
+      margin-bottom: 4px;
     }
 
-    .msg-time {
-      font-size: 0.75rem;
+    .msg-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
       color: var(--text-muted);
-      margin-top: 4px;
     }
 
+    /* Main View Area */
     .main-view {
       flex: 1;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      background: var(--bg-primary);
     }
 
+    /* Session Overview Bar */
+    .session-banner {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 0.82rem;
+    }
+
+    .session-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .pill {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 8px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .pill strong {
+      color: var(--text-main);
+    }
+
+    .copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      padding: 2px;
+      border-radius: 3px;
+    }
+
+    .copy-btn:hover {
+      color: var(--text-main);
+    }
+
+    /* Filter Chips Bar */
+    .filter-bar {
+      padding: 8px 20px;
+      background: rgba(17, 24, 39, 0.6);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow-x: auto;
+    }
+
+    .filter-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      margin-right: 4px;
+    }
+
+    .chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.15s;
+    }
+
+    .chip:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-main);
+    }
+
+    .chip.active {
+      background: var(--accent);
+      color: #090d16;
+      font-weight: 600;
+      border-color: var(--accent);
+    }
+
+    /* Timeline & Cards */
     .timeline {
-      padding: 16px;
-      overflow-y: auto;
       flex: 1;
+      padding: 20px;
+      overflow-y: auto;
     }
 
     .step-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 14px;
+      padding: 14px 16px;
       margin-bottom: 12px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .step-card:hover {
+      border-color: #4b5563;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .step-card.policy {
+      border-left: 4px solid var(--accent);
+    }
+
+    .step-card.statechange {
+      border-left: 4px solid var(--purple);
+    }
+
+    .step-card.condition {
+      border-left: 4px solid var(--warning);
     }
 
     .step-card.error {
-      border-color: var(--error);
+      border-left: 4px solid var(--error);
+      background: rgba(239, 68, 68, 0.05);
     }
 
     .step-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+    }
+
+    .step-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
     }
 
     .step-name {
       font-size: 0.95rem;
-      font-weight: 600;
-      color: var(--accent);
+      font-weight: 700;
+      color: var(--text-main);
     }
 
-    .step-id {
-      font-size: 0.75rem;
-      background: var(--bg-card);
+    .step-type-badge {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
       padding: 2px 8px;
       border-radius: 4px;
+      background: var(--bg-card);
       color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .step-duration-badge {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .step-duration-badge.significant {
+      border-color: var(--text-muted);
+      background: var(--bg-card-hover);
+      color: #fff;
+    }
+
+    .step-elapsed-badge {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text-dim);
+    }
+
+    .step-timestamp {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* Collapsible Sections */
+    .section-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-top: 12px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
 
     .properties-table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 8px;
+      margin-top: 4px;
       font-size: 0.8rem;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid var(--border);
     }
 
     .properties-table th, .properties-table td {
       text-align: left;
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--border);
+      padding: 6px 10px;
+      border-bottom: 1px solid rgba(55, 65, 81, 0.5);
     }
 
     .properties-table th {
+      background: var(--bg-card);
       color: var(--text-muted);
+      font-size: 0.74rem;
+      text-transform: uppercase;
     }
 
-    .vars-list {
-      margin-top: 8px;
-      font-family: monospace;
-      font-size: 0.8rem;
+    .properties-table td:first-child {
+      font-family: var(--font-mono);
+      color: #93c5fd;
+      width: 35%;
+      word-break: break-all;
+    }
+
+    .properties-table td:last-child {
+      word-break: break-all;
+      color: #e5e7eb;
+    }
+
+    /* Variables List */
+    .vars-container {
+      margin-top: 6px;
       background: var(--bg-primary);
-      padding: 8px;
+      border: 1px solid var(--border);
       border-radius: 6px;
-      max-height: 200px;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      max-height: 240px;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
 
-    .var-action { color: var(--accent); font-weight: bold; }
-    .var-name { color: #f472b6; }
-    .var-val { color: #a7f3d0; word-break: break-all; }
+    .var-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      word-break: break-all;
+    }
 
+    .var-tag {
+      font-size: 0.68rem;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .tag-get { background: var(--accent-dim); color: var(--accent); }
+    .tag-set { background: var(--success-dim); color: var(--success); }
+    .tag-remove { background: var(--error-dim); color: var(--error); }
+
+    .var-name {
+      color: #f472b6;
+      font-weight: 600;
+    }
+
+    .var-val {
+      color: #a7f3d0;
+    }
+
+    /* Content Previews */
     .content-box {
       background: var(--bg-primary);
+      border: 1px solid var(--border);
       border-radius: 6px;
       padding: 10px;
-      font-family: monospace;
+      font-family: var(--font-mono);
       font-size: 0.8rem;
       white-space: pre-wrap;
+      word-break: break-all;
       max-height: 250px;
       overflow-y: auto;
-      margin-top: 8px;
+      margin-top: 6px;
+      color: #d1d5db;
     }
 
+    /* Empty / Drop Zone */
     .drop-zone {
       display: flex;
       flex-direction: column;
@@ -240,183 +572,774 @@
       height: 100%;
       color: var(--text-muted);
       border: 2px dashed var(--border);
-      margin: 20px;
+      margin: 30px;
       border-radius: 12px;
+      gap: 16px;
+      text-align: center;
+      padding: 40px;
+      background: rgba(17, 24, 39, 0.4);
+    }
+
+    .drop-icon {
+      color: var(--text-muted);
+      opacity: 0.85;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .drop-zone h3 {
+      font-size: 1.2rem;
+      color: var(--text-main);
+    }
+
+    .drop-zone p {
+      font-size: 0.9rem;
+      max-width: 480px;
+      line-height: 1.5;
+    }
+
+    .drop-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    /* Native Modal Dialog */
+    dialog {
+      background: var(--bg-secondary);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0;
+      width: min(800px, 92vw);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+      margin: auto;
+    }
+
+    dialog::backdrop {
+      background: rgba(9, 13, 22, 0.75);
+      backdrop-filter: blur(4px);
+    }
+
+    .dialog-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dialog-header h3 {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.2rem;
+      line-height: 1;
+      padding: 4px;
+    }
+
+    .close-btn:hover {
+      color: #fff;
+    }
+
+    .dialog-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .dialog-textarea {
+      width: 100%;
+      height: 320px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      resize: vertical;
+      outline: none;
+    }
+
+    .dialog-textarea:focus {
+      border-color: var(--accent);
+    }
+
+    .dialog-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .dialog-error {
+      color: var(--error);
+      font-size: 0.85rem;
+      display: none;
     }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="title">Apigee Emulator Trace Visualizer</div>
-  <div class="controls">
-    <label class="btn" for="fileInput">Open trace.json</label>
+  <div class="brand">
+    <div class="brand-title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+      </svg>
+      <span>Apigee Trace Visualizer</span>
+    </div>
+    <span class="source-badge" id="sourceBadge"></span>
+  </div>
+
+  <div class="header-actions">
+    <!-- Two Primary Buttons Requested -->
+    <label class="btn" for="fileInput" title="Load JSON trace file from disk">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="17 8 12 3 7 8"></polyline>
+        <line x1="12" y1="3" x2="12" y2="15"></line>
+      </svg>
+      Load File
+    </label>
     <input type="file" id="fileInput" accept=".json">
+
+    <button class="btn btn-secondary" id="openPasteBtn" title="Paste raw trace JSON">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+      </svg>
+      Load JSON
+    </button>
   </div>
 </header>
 
-<div class="container">
-  <div class="sidebar">
-    <div class="sidebar-header">Requests (<span id="reqCount">0</span>)</div>
-    <div class="message-list" id="messageList"></div>
-  </div>
-
-  <div class="main-view" id="mainView">
-    <div class="drop-zone" id="dropZone">
-      <p>Select or drag & drop a <strong>trace.json</strong> file to inspect execution flow, variables, and policy steps.</p>
+<div class="app-container">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-toolbar">
+      <input type="text" class="search-input" id="sidebarSearch" placeholder="Filter requests (e.g. GET, /test)...">
     </div>
-  </div>
+    <div class="message-list" id="messageList"></div>
+  </aside>
+
+  <!-- Main View -->
+  <main class="main-view" id="mainView">
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+          <line x1="12" y1="11" x2="12" y2="17"></line>
+          <line x1="9" y1="14" x2="15" y2="14"></line>
+        </svg>
+      </div>
+      <h3>No Trace Loaded</h3>
+      <p>Supports both <strong>Apigee Cloud Trace</strong> and <strong>Apigee Emulator Trace</strong> exports. Drag and drop any trace JSON file here, or choose an option below:</p>
+      <div class="drop-actions">
+        <label class="btn" for="fileInput">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          Load File
+        </label>
+        <button class="btn btn-secondary" onclick="openPasteModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+          </svg>
+          Load JSON
+        </button>
+      </div>
+      <div style="margin-top:16px; font-size: 0.8rem; color: var(--text-dim);">
+        Quick Samples: 
+        <a href="#" onclick="loadSample('debug-trace-example-emulator.json'); return false;" style="color:var(--text-muted); text-decoration:underline; margin: 0 6px;">Emulator Example</a> |
+        <a href="#" onclick="loadSample('debug-trace-example-cloud.json'); return false;" style="color:var(--text-muted); text-decoration:underline; margin: 0 6px;">Cloud Example</a>
+      </div>
+    </div>
+  </main>
 </div>
 
+<!-- Modal Dialog for Pasting JSON -->
+<dialog id="pasteDialog">
+  <div class="dialog-header">
+    <h3>Paste Trace JSON</h3>
+    <button class="close-btn" onclick="closePasteModal()" aria-label="Close">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+  <div class="dialog-body">
+    <p style="font-size:0.85rem; color:var(--text-muted);">
+      Paste the JSON output from your Cloud or Emulator trace session below:
+    </p>
+    <textarea class="dialog-textarea" id="jsonPasteText" placeholder='{"DebugSession": {...}, "Messages": [...]}'></textarea>
+    <div class="dialog-error" id="dialogError"></div>
+  </div>
+  <div class="dialog-footer">
+    <button class="btn btn-secondary btn-sm" onclick="clearPasteText()">Clear</button>
+    <button class="btn btn-secondary btn-sm" onclick="closePasteModal()">Cancel</button>
+    <button class="btn btn-sm" id="submitPasteBtn" onclick="handlePasteSubmit()">Parse &amp; Load</button>
+  </div>
+</dialog>
+
 <script>
-  let traceData = null;
+  let rawTraceData = null;
+  let normalizedTrace = null;
+  let currentActiveMsgIdx = 0;
+  let currentFilter = 'all';
+  let currentSearchQuery = '';
 
-  document.getElementById('fileInput').addEventListener('change', handleFile);
+  const pasteDialog = document.getElementById('pasteDialog');
+  const fileInput = document.getElementById('fileInput');
 
+  // File picker handler
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+      loadFile(e.target.files[0]);
+    }
+  });
+
+  // Drag and drop handlers
   window.addEventListener('dragover', (e) => e.preventDefault());
   window.addEventListener('drop', (e) => {
     e.preventDefault();
     if (e.dataTransfer.files.length) {
-      loadJSON(e.dataTransfer.files[0]);
+      loadFile(e.dataTransfer.files[0]);
     }
   });
 
-  function handleFile(e) {
-    if (e.target.files.length) {
-      loadJSON(e.target.files[0]);
+  // Modal dialog triggers
+  document.getElementById('openPasteBtn').addEventListener('click', openPasteModal);
+
+  function openPasteModal() {
+    document.getElementById('dialogError').style.display = 'none';
+    pasteDialog.showModal();
+    document.getElementById('jsonPasteText').focus();
+  }
+
+  function closePasteModal() {
+    pasteDialog.close();
+  }
+
+  // Close on outside click
+  pasteDialog.addEventListener('click', (e) => {
+    const rect = pasteDialog.getBoundingClientRect();
+    if (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    ) {
+      pasteDialog.close();
+    }
+  });
+
+  function clearPasteText() {
+    document.getElementById('jsonPasteText').value = '';
+    document.getElementById('dialogError').style.display = 'none';
+  }
+
+  function handlePasteSubmit() {
+    const text = document.getElementById('jsonPasteText').value.trim();
+    const errorEl = document.getElementById('dialogError');
+    if (!text) {
+      errorEl.innerText = 'Please paste JSON trace text.';
+      errorEl.style.display = 'block';
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(text);
+      processTraceData(parsed);
+      closePasteModal();
+      clearPasteText();
+    } catch (err) {
+      errorEl.innerText = 'Invalid JSON: ' + err.message;
+      errorEl.style.display = 'block';
     }
   }
 
-  // Attempt auto-loading trace.json if served alongside or in dist/
-  fetch('dist/trace.json')
-    .then(r => r.ok ? r.json() : fetch('trace.json').then(res => res.ok ? res.json() : null))
-    .then(data => { if (data) renderTrace(data); })
-    .catch(() => {});
-
-  function loadJSON(file) {
+  function loadFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const json = JSON.parse(e.target.result);
-        renderTrace(json);
+        processTraceData(json);
       } catch (err) {
-        alert('Invalid JSON file: ' + err.message);
+        alert('Failed to parse file: ' + err.message);
       }
     };
     reader.readAsText(file);
   }
 
-  function renderTrace(data) {
-    traceData = data;
-    const messages = data.Messages || [];
-    document.getElementById('reqCount').innerText = messages.length;
+  function loadSample(url) {
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => processTraceData(data))
+      .catch(err => alert(`Unable to load sample ${url}: ${err.message}`));
+  }
 
-    const list = document.getElementById('messageList');
-    list.innerHTML = '';
+  // Attempt auto-load trace.json if served alongside
+  if (typeof fetch === 'function') {
+    fetch('trace.json')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) processTraceData(data); })
+      .catch(() => {});
+  }
 
-    messages.forEach((msg, idx) => {
-      const firstReq = msg.point.find(p => p.id === 'StateChange' && p.results && p.results.some(r => r.verb));
-      const lastResp = msg.point.slice().reverse().find(p => p.id === 'StateChange' && p.results && p.results.some(r => r.statusCode));
+  // ---------------------------------------------------------------------------
+  // Normalization logic for both Cloud & Emulator traces
+  // ---------------------------------------------------------------------------
+  function parseApigeeTimestamp(ts) {
+    if (!ts || typeof ts !== 'string') return null;
+    ts = ts.trim();
+    if (ts.includes('T')) {
+      const t = Date.parse(ts);
+      if (!isNaN(t)) return t;
+    }
+    const parts = ts.split(' ');
+    if (parts.length === 2) {
+      const dTokens = parts[0].split('-');
+      const tTokens = parts[1].split(':');
+      if (dTokens.length === 3 && tTokens.length >= 4) {
+        const day = parseInt(dTokens[0], 10);
+        const month = parseInt(dTokens[1], 10) - 1;
+        const year = 2000 + parseInt(dTokens[2], 10);
+        const hour = parseInt(tTokens[0], 10);
+        const minute = parseInt(tTokens[1], 10);
+        const second = parseInt(tTokens[2], 10);
+        const ms = parseInt(tTokens[3], 10);
+        return new Date(Date.UTC(year, month, day, hour, minute, second, ms)).getTime();
+      }
+    }
+    const fallback = Date.parse(ts);
+    return isNaN(fallback) ? null : fallback;
+  }
 
+  function normalizeTrace(data) {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Trace root is not a valid object.');
+    }
+
+    const session = data.DebugSession || {};
+    // Detect Cloud vs Emulator
+    const isCloud = !!(session.Retrieved || session.Version || session.API);
+    const messages = Array.isArray(data.Messages) ? data.Messages : [];
+
+    const normalizedMessages = messages.map((msg, idx) => {
       let verb = 'REQ';
-      let uri = 'Execution';
-      let status = '---';
+      let uri = '/';
+      let statusCode = '---';
+      let startTime = null;
+      let endTime = null;
 
-      if (firstReq) {
-        const r = firstReq.results.find(res => res.verb);
-        if (r) { verb = r.verb; uri = r.uRI; }
+      const points = (msg.point || []).map((pt, pIdx) => {
+        let stepName = pt.id || 'Point';
+        let stepType = pt.id;
+        let properties = [];
+        let varAccess = [];
+        let headers = [];
+        let content = null;
+        let isError = false;
+        let pointTimestamp = '';
+
+        for (const res of (pt.results || [])) {
+          if (!startTime && res.timestamp) startTime = res.timestamp;
+          if (res.timestamp) {
+            endTime = res.timestamp;
+            if (!pointTimestamp) pointTimestamp = res.timestamp;
+          }
+
+          // Request Verb & URI
+          if (res.verb && res.verb.trim() && verb === 'REQ') {
+            verb = res.verb.trim();
+          }
+          const u = res.uri || res.uRI;
+          if (u && u.trim() && uri === '/') {
+            uri = u.trim();
+          }
+          if (res.statusCode) {
+            statusCode = String(res.statusCode);
+          }
+
+          // Properties normalization: supports .property, .properties, or direct map
+          if (res.properties && typeof res.properties === 'object') {
+            const rawProps = res.properties.property || res.properties.properties;
+            if (Array.isArray(rawProps)) {
+              for (const p of rawProps) {
+                if (p && p.name) properties.push({ name: p.name, value: p.value !== undefined ? String(p.value) : '' });
+              }
+            } else if (!rawProps) {
+              for (const [k, v] of Object.entries(res.properties)) {
+                if (typeof v === 'string' || typeof v === 'number') {
+                  properties.push({ name: k, value: String(v) });
+                }
+              }
+            }
+          }
+
+          // Variable Access normalization: handles emulator ({Get: {name, value}}) and cloud ({get: {...}, set: null})
+          if (res.accessList && Array.isArray(res.accessList)) {
+            for (const item of res.accessList) {
+              if (!item || typeof item !== 'object') continue;
+              for (const [key, val] of Object.entries(item)) {
+                if (val && typeof val === 'object' && val.name) {
+                  varAccess.push({
+                    action: key.toUpperCase(),
+                    name: val.name,
+                    value: val.value !== undefined ? String(val.value) : ''
+                  });
+                }
+              }
+            }
+          }
+
+          // Headers
+          if (res.headers && Array.isArray(res.headers)) {
+            headers.push(...res.headers);
+          }
+
+          // Content
+          if (res.content) {
+            content = res.content;
+          }
+
+          // Error flag
+          if (res.error || (res.reasonPhrase && !String(res.statusCode || '').startsWith('2'))) {
+            if (res.statusCode && !String(res.statusCode).startsWith('2')) {
+              isError = true;
+            }
+          }
+        }
+
+        // Custom step naming from properties
+        const dispProp = properties.find(p => p.name === 'stepDefinition-displayName' || p.name === 'stepDefinition-name');
+        const typeProp = properties.find(p => p.name === 'stepDefinition-type');
+        const fromProp = properties.find(p => p.name === 'From');
+
+        if (dispProp) {
+          stepName = dispProp.value;
+        } else if (fromProp) {
+          stepName = `State: ${fromProp.value}`;
+        }
+
+        if (typeProp) {
+          stepType = typeProp.value;
+        }
+
+        return {
+          id: pt.id,
+          stepName,
+          stepType,
+          properties,
+          varAccess,
+          headers,
+          content,
+          isError,
+          timestamp: pointTimestamp
+        };
+      });
+
+      // Compute continuous timestamps and elapsed times for each step
+      let lastKnownTime = null;
+      const pointTimes = [];
+      for (let i = 0; i < points.length; i++) {
+        const parsed = parseApigeeTimestamp(points[i].timestamp);
+        if (parsed !== null) lastKnownTime = parsed;
+        pointTimes.push(lastKnownTime);
+      }
+      const firstKnownTime = pointTimes.find(t => t !== null) || 0;
+      for (let i = 0; i < pointTimes.length; i++) {
+        if (pointTimes[i] === null) pointTimes[i] = firstKnownTime;
       }
 
-      if (lastResp) {
-        const r = lastResp.results.find(res => res.statusCode);
-        if (r) status = r.statusCode;
+      const startMs = pointTimes[0] || 0;
+      const endMs = pointTimes[pointTimes.length - 1] || startMs;
+      const totalDuration = Math.max(0, endMs - startMs);
+
+      for (let i = 0; i < points.length; i++) {
+        const curT = pointTimes[i];
+        const nextT = (i + 1 < pointTimes.length) ? pointTimes[i + 1] : curT;
+        let stepDuration = Math.max(0, nextT - curT);
+
+        // If stepDuration rounded to 0, check for explicit internal executionTime property
+        if (stepDuration === 0) {
+          const execTimeProp = points[i].properties.find(p => 
+            p.name === 'javascript-executionTime' || 
+            p.name === 'api_security_action.time.ms' ||
+            p.name === 'targetendpoint_default.totalConnectionTimeMs'
+          );
+          if (execTimeProp && !isNaN(parseInt(execTimeProp.value, 10))) {
+            const explicitVal = parseInt(execTimeProp.value, 10);
+            if (explicitVal > 0) stepDuration = explicitVal;
+          }
+        }
+
+        const elapsedFromStart = Math.max(0, curT - startMs);
+        points[i].stepDuration = stepDuration;
+        points[i].elapsedFromStart = elapsedFromStart;
+        points[i].durationText = stepDuration > 0 ? `${stepDuration} ms` : '< 1 ms';
+        points[i].elapsedText = `+${elapsedFromStart} ms`;
+        points[i].isSignificant = stepDuration >= 15;
       }
 
-      const item = document.createElement('div');
-      item.className = 'message-item' + (idx === 0 ? ' active' : '');
-      item.innerHTML = `
-        <span class="msg-badge ${status.startsWith('2') ? 'badge-200' : 'badge-400'}">${status}</span>
-        <div class="msg-title">${verb} ${uri}</div>
-        <div class="msg-time">Request #${idx + 1}</div>
-      `;
-      item.onclick = () => {
-        document.querySelectorAll('.message-item').forEach(el => el.classList.remove('active'));
-        item.classList.add('active');
-        renderMessageDetails(msg);
+      return {
+        index: idx + 1,
+        verb,
+        uri,
+        statusCode,
+        startTime,
+        endTime,
+        totalDuration,
+        pointCount: points.length,
+        points
       };
-      list.appendChild(item);
     });
 
-    if (messages.length > 0) {
-      renderMessageDetails(messages[0]);
+    return {
+      isCloud,
+      session,
+      messageCount: normalizedMessages.length,
+      messages: normalizedMessages
+    };
+  }
+
+  function processTraceData(data) {
+    rawTraceData = data;
+    normalizedTrace = normalizeTrace(data);
+
+    // Update Header Source Badge
+    const badge = document.getElementById('sourceBadge');
+    badge.className = 'source-badge ' + (normalizedTrace.isCloud ? 'cloud' : 'emulator');
+    badge.innerText = normalizedTrace.isCloud ? 'Apigee Cloud Trace' : 'Apigee Emulator Trace';
+
+    currentActiveMsgIdx = 0;
+    renderSidebar();
+    if (normalizedTrace.messages.length > 0) {
+      renderMessage(0);
+    } else {
+      document.getElementById('mainView').innerHTML = `
+        <div class="drop-zone">
+          <h3>Trace Loaded (0 Requests Found)</h3>
+          <p>The trace session contains no completed messages or transactions.</p>
+        </div>
+      `;
     }
   }
 
-  function renderMessageDetails(msg) {
+  // ---------------------------------------------------------------------------
+  // Sidebar Rendering
+  // ---------------------------------------------------------------------------
+  function renderSidebar() {
+    const list = document.getElementById('messageList');
+    list.innerHTML = '';
+
+    const filterText = (document.getElementById('sidebarSearch').value || '').toLowerCase();
+
+    normalizedTrace.messages.forEach((msg, idx) => {
+      const matchText = `${msg.verb} ${msg.uri} ${msg.statusCode}`.toLowerCase();
+      if (filterText && !matchText.includes(filterText)) return;
+
+      const item = document.createElement('div');
+      item.className = 'message-item' + (idx === currentActiveMsgIdx ? ' active' : '');
+
+      let statusClass = 'badge-unknown';
+      if (msg.statusCode.startsWith('2')) statusClass = 'badge-2xx';
+      else if (msg.statusCode.startsWith('3')) statusClass = 'badge-3xx';
+      else if (msg.statusCode.startsWith('4') || msg.statusCode.startsWith('5')) statusClass = 'badge-4xx';
+
+      item.innerHTML = `
+        <div class="msg-top-row">
+          <div>
+            <span class="msg-badge badge-verb">${escapeHtml(msg.verb)}</span>
+            <span class="msg-badge ${statusClass}">${escapeHtml(msg.statusCode)}</span>
+          </div>
+          <span style="font-size:0.7rem; color:var(--text-dim); font-family:var(--font-mono);">#${msg.index}</span>
+        </div>
+        <div class="msg-uri">${escapeHtml(msg.uri)}</div>
+        <div class="msg-meta">
+          <span>${msg.pointCount} steps · ${msg.totalDuration} ms</span>
+          <span>${escapeHtml(msg.startTime ? msg.startTime.split(' ')[1] || msg.startTime : '')}</span>
+        </div>
+      `;
+
+      item.onclick = () => {
+        document.querySelectorAll('.message-item').forEach(el => el.classList.remove('active'));
+        item.classList.add('active');
+        currentActiveMsgIdx = idx;
+        renderMessage(idx);
+      };
+
+      list.appendChild(item);
+    });
+  }
+
+  document.getElementById('sidebarSearch').addEventListener('input', renderSidebar);
+
+  // ---------------------------------------------------------------------------
+  // Main Timeline & Message Details Rendering
+  // ---------------------------------------------------------------------------
+  function renderMessage(idx) {
+    const msg = normalizedTrace.messages[idx];
+    if (!msg) return;
+
     const mainView = document.getElementById('mainView');
-    mainView.innerHTML = '<div class="timeline" id="timeline"></div>';
-    const timeline = document.getElementById('timeline');
+    const session = normalizedTrace.session;
 
-    msg.point.forEach(pt => {
-      if (!pt.results || pt.results.length === 0) return;
+    const org = session.Organization || 'emulator';
+    const env = session.Environment || 'test';
+    const api = session.API || (session.proxyName || 'DefaultProxy');
+    const rev = session.Revision || '0';
+    const sessionId = session.SessionId || 'N/A';
 
+    let html = `
+      <div class="session-banner">
+        <div class="session-pills">
+          <div class="pill"><span>Org:</span> <strong>${escapeHtml(org)}</strong></div>
+          <div class="pill"><span>Env:</span> <strong>${escapeHtml(env)}</strong></div>
+          <div class="pill"><span>Proxy:</span> <strong>${escapeHtml(api)} (rev ${escapeHtml(rev)})</strong></div>
+          <div class="pill"><span>Duration:</span> <strong>${msg.totalDuration} ms</strong></div>
+          <div class="pill">
+            <span>Session:</span> <strong>${escapeHtml(sessionId)}</strong>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText('${escapeHtml(sessionId)}')" title="Copy Session ID">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            </button>
+          </div>
+        </div>
+        <div style="color:var(--text-dim); font-size:0.75rem; font-family:var(--font-mono);">
+          ${escapeHtml(msg.startTime || '')}
+        </div>
+      </div>
+
+      <div class="filter-bar">
+        <span class="filter-label">Filter Steps:</span>
+        <button class="chip ${currentFilter === 'all' ? 'active' : ''}" onclick="setStepFilter('all')">All (${msg.points.length})</button>
+        <button class="chip ${currentFilter === 'policies' ? 'active' : ''}" onclick="setStepFilter('policies')">Policies</button>
+        <button class="chip ${currentFilter === 'variables' ? 'active' : ''}" onclick="setStepFilter('variables')">Variables</button>
+        <button class="chip ${currentFilter === 'statechange' ? 'active' : ''}" onclick="setStepFilter('statechange')">State Changes</button>
+        <button class="chip ${currentFilter === 'errors' ? 'active' : ''}" onclick="setStepFilter('errors')">Errors</button>
+      </div>
+
+      <div class="timeline" id="timelineList"></div>
+    `;
+
+    mainView.innerHTML = html;
+    renderTimelineSteps(msg);
+  }
+
+  function setStepFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll('.filter-bar .chip').forEach(c => c.classList.remove('active'));
+    renderMessage(currentActiveMsgIdx);
+  }
+
+  function renderTimelineSteps(msg) {
+    const timeline = document.getElementById('timelineList');
+    timeline.innerHTML = '';
+
+    const filtered = msg.points.filter(pt => {
+      if (currentFilter === 'policies') {
+        return pt.stepType !== 'StateChange' && pt.stepType !== 'Condition' && pt.stepType !== 'DebugMask' && pt.stepType !== 'FlowInfo';
+      }
+      if (currentFilter === 'variables') {
+        return pt.varAccess.length > 0;
+      }
+      if (currentFilter === 'statechange') {
+        return pt.id === 'StateChange';
+      }
+      if (currentFilter === 'errors') {
+        return pt.isError;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      timeline.innerHTML = '<div style="text-align:center; padding: 40px; color:var(--text-muted);">No steps match the selected filter.</div>';
+      return;
+    }
+
+    filtered.forEach(pt => {
       const card = document.createElement('div');
-      card.className = 'step-card';
+      
+      let cardClass = 'step-card';
+      if (pt.isError) cardClass += ' error';
+      else if (pt.id === 'StateChange') cardClass += ' statechange';
+      else if (pt.id === 'Condition') cardClass += ' condition';
+      else if (pt.stepType && pt.stepType !== pt.id) cardClass += ' policy';
 
-      let stepName = pt.id;
-      let properties = [];
-      let varAccess = [];
-      let content = null;
+      card.className = cardClass;
 
-      pt.results.forEach(res => {
-        if (res.properties && res.properties.property) {
-          properties.push(...res.properties.property);
-        }
-        if (res.ActionResult === 'VariableAccess' && res.accessList) {
-          varAccess.push(...res.accessList);
-        }
-        if (res.content) {
-          content = res.content;
-        }
-      });
-
-      const dispNameProp = properties.find(p => p.name === 'stepDefinition-displayName' || p.name === 'From');
-      if (dispNameProp) stepName += `: ${dispNameProp.value}`;
-
+      // Props table
       let propsHTML = '';
-      if (properties.length > 0) {
+      if (pt.properties.length > 0) {
         propsHTML = `
+          <div class="section-title">Properties (${pt.properties.length})</div>
           <table class="properties-table">
             <thead><tr><th>Property</th><th>Value</th></tr></thead>
             <tbody>
-              ${properties.map(p => `<tr><td>${p.name}</td><td>${escapeHtml(p.value)}</td></tr>`).join('')}
+              ${pt.properties.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.value)}</td></tr>`).join('')}
             </tbody>
           </table>
         `;
       }
 
+      // Variable Access
       let varsHTML = '';
-      if (varAccess.length > 0) {
+      if (pt.varAccess.length > 0) {
         varsHTML = `
-          <div class="vars-list">
-            ${varAccess.map(v => {
-              const op = Object.keys(v)[0];
-              const info = v[op];
-              return `<div><span class="var-action">${op.toUpperCase()}</span> <span class="var-name">${info.name}</span> = <span class="var-val">${escapeHtml(info.value || '')}</span></div>`;
+          <div class="section-title">Variable Access (${pt.varAccess.length})</div>
+          <div class="vars-container">
+            ${pt.varAccess.map(v => {
+              const tagClass = v.action === 'SET' ? 'tag-set' : (v.action === 'REMOVE' ? 'tag-remove' : 'tag-get');
+              return `
+                <div class="var-row">
+                  <span class="var-tag ${tagClass}">${escapeHtml(v.action)}</span>
+                  <span class="var-name">${escapeHtml(v.name)}</span>
+                  <span>=</span>
+                  <span class="var-val">${escapeHtml(v.value)}</span>
+                </div>
+              `;
             }).join('')}
           </div>
         `;
       }
 
+      // Content preview
       let contentHTML = '';
-      if (content) {
-        contentHTML = `<div class="content-box">${escapeHtml(content)}</div>`;
+      if (pt.content) {
+        contentHTML = `
+          <div class="section-title">Payload / Content</div>
+          <div class="content-box">${escapeHtml(pt.content)}</div>
+        `;
       }
 
       card.innerHTML = `
         <div class="step-header">
-          <span class="step-name">${stepName}</span>
-          <span class="step-id">${pt.id}</span>
+          <div class="step-title-wrap">
+            <span class="step-name">${escapeHtml(pt.stepName)}</span>
+            <span class="step-type-badge">${escapeHtml(pt.stepType)}</span>
+            <span class="step-duration-badge ${pt.isSignificant ? 'significant' : ''}" title="Step execution duration">${escapeHtml(pt.durationText)}</span>
+            <span class="step-elapsed-badge" title="Elapsed time from request start">${escapeHtml(pt.elapsedText)}</span>
+          </div>
+          <span class="step-timestamp">${escapeHtml(pt.timestamp)}</span>
         </div>
         ${propsHTML}
         ${varsHTML}

@@ -1,3 +1,3 @@
 {
-  "proxies": ["REST-AI-Completions-v1", "REST-AI-Generate-Content"]
+  "proxies": ["TestProxy"]
 }

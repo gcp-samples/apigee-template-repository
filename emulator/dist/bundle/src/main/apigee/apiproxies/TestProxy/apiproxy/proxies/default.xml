@@ -1,0 +1,23 @@
+<ProxyEndpoint name="default">
+  <HTTPProxyConnection>
+    <BasePath>/testproxy</BasePath>
+  </HTTPProxyConnection>
+  <PreFlow name="PreFlow">
+    <Request/>
+    <Response/>
+  </PreFlow>
+  <PostFlow name="PostFlow">
+    <Request/>
+    <Response>
+      <Step>
+        <Name>JS-AddHelloWorld</Name>
+      </Step>
+      <Step>
+        <Name>AM-SetHeader</Name>
+      </Step>
+    </Response>
+  </PostFlow>
+  <RouteRule name="default">
+    <TargetEndpoint>default</TargetEndpoint>
+  </RouteRule>
+</ProxyEndpoint>
