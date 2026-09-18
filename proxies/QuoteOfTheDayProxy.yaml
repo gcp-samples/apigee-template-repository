@@ -1,0 +1,152 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
+name: QuoteOfTheDayProxy
+displayName: Quote of the Day Proxy
+type: proxy
+gateway: apigee
+schemaVersion: 1.0.0
+categories: []
+description: API proxy for mocktarget.apigee.net with Quote of the Day response enrichment
+documentation: ""
+parameters:
+  - name: response-quote.quote.DEFAULT_QUOTE
+    displayName: DEFAULT_QUOTE
+    description: Configuration input for DEFAULT_QUOTE
+    default: "The only way to do great work is to love what you do. - Steve Jobs"
+    examples:
+      - "The journey of a thousand miles begins with one step. - Lao Tzu"
+      - "Be the change that you wish to see in the world. - Mahatma Gandhi"
+endpoints:
+  - name: default
+    basePath: /quote-of-the-day
+    routes:
+      - name: default
+        target: default
+    flows:
+      - name: PostFlow
+        mode: Response
+        steps:
+          - name: JS-AddQuoteOfTheDay
+          - name: AM-SetQuoteHeader
+    faultRules: []
+targets:
+  - name: default
+    url: https://mocktarget.apigee.net
+    flows: []
+    faultRules: []
+    httpTargetConnection:
+      Properties: {}
+      URL: https://mocktarget.apigee.net
+policies:
+  - name: AM-SetQuoteHeader
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-SetQuoteHeader
+        DisplayName: AM-SetQuoteHeader
+        Properties: {}
+        Set:
+          Headers:
+            Header:
+              metadata:
+                name: x-quote-of-the-day
+              _text: "{quote.text}"
+          Path: {}
+        IgnoreUnresolvedVariables: "true"
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: response
+  - name: JS-AddQuoteOfTheDay
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-AddQuoteOfTheDay
+        DisplayName: JS-AddQuoteOfTheDay
+        Properties: {}
+        ResourceURL: jsc://quote-of-the-day.js
+resources:
+  - name: quote.properties
+    type: properties
+    content: |
+      DEFAULT_QUOTE=The only way to do great work is to love what you do. - Steve Jobs
+  - name: quote-of-the-day.js
+    type: jsc
+    content: |-
+      var quotes = [
+        { quote: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+        { quote: "The journey of a thousand miles begins with one step.", author: "Lao Tzu" },
+        { quote: "Simplicity is the soul of efficiency.", author: "Austin Freeman" },
+        { quote: "Be the change that you wish to see in the world.", author: "Mahatma Gandhi" },
+        { quote: "Stay hungry, stay foolish.", author: "Steve Jobs" },
+        { quote: "It always seems impossible until it's done.", author: "Nelson Mandela" },
+        { quote: "Act as if what you do makes a difference. It does.", author: "William James" },
+        { quote: "Quality is not an act, it is a habit.", author: "Aristotle" },
+        { quote: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
+        { quote: "Do what you can, with what you have, where you are.", author: "Theodore Roosevelt" }
+      ];
+
+      var now = new Date();
+      var start = new Date(now.getFullYear(), 0, 0);
+      var diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+      var oneDay = 1000 * 60 * 60 * 24;
+      var dayOfYear = Math.floor(diff / oneDay);
+      var selected = quotes[Math.abs(dayOfYear) % quotes.length];
+
+      var customQuote = context.getVariable("request.queryparam.quote");
+      if (!customQuote) {
+        var propQuote = context.getVariable("propertyset.quote.DEFAULT_QUOTE");
+        if (!selected && propQuote) {
+          customQuote = propQuote;
+        }
+      }
+
+      var quoteText = selected ? selected.quote : "The only way to do great work is to love what you do.";
+      var quoteAuthor = selected ? selected.author : "Steve Jobs";
+
+      if (customQuote && customQuote !== "") {
+        var parts = customQuote.split(" - ");
+        if (parts.length > 1) {
+          quoteText = parts[0].replace(/^\s+|\s+$/g, "");
+          quoteAuthor = parts.slice(1).join(" - ").replace(/^\s+|\s+$/g, "");
+        } else {
+          quoteText = customQuote.replace(/^\s+|\s+$/g, "");
+          quoteAuthor = "Unknown";
+        }
+      }
+
+      var fullQuoteString = "\"" + quoteText + "\" — " + quoteAuthor;
+      context.setVariable("quote.text", fullQuoteString);
+      context.setVariable("quote.message", quoteText);
+      context.setVariable("quote.author", quoteAuthor);
+
+      var responseText = response.content;
+      if (!responseText) responseText = "";
+
+      var responseObject = undefined;
+      try {
+        responseObject = JSON.parse(responseText);
+      } catch(e) {
+        // Response content is not JSON
+      }
+
+      if (responseObject && typeof responseObject === "object") {
+        responseObject["quoteOfTheDay"] = {
+          quote: quoteText,
+          author: quoteAuthor,
+          formatted: fullQuoteString
+        };
+        context.setVariable("response.content", JSON.stringify(responseObject));
+      } else {
+        var separator = (responseText.length > 0 && responseText.charAt(responseText.length - 1) !== "\n") ? "\n\n" : "\n";
+        responseText = responseText + separator + "Quote of the Day: " + fullQuoteString;
+        context.setVariable("response.content", responseText);
+      }
+tests: []
