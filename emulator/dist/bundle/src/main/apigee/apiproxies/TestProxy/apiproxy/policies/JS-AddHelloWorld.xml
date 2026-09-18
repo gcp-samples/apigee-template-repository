@@ -1,5 +1,0 @@
-<Javascript continueOnError="false" enabled="true" timeLimit="200" name="JS-AddHelloWorld">
-  <DisplayName>JS-AddHelloWorld</DisplayName>
-  <Properties/>
-  <ResourceURL>jsc://hello-world.js</ResourceURL>
-</Javascript>
