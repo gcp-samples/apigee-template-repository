@@ -7,7 +7,9 @@ features:
   - ../features/ai-endpoint-messages.yaml
   - ../features/ai-target-googlecloud.yaml
   - ../features/ai-model-preprocess.yaml
+  - ../features/auth-apikey-verify.yaml
   - ../features/ai-model-postprocess.yaml
+  - ../features/ai-token-quota.yaml
 parameters:
   - name: GoogleCloudProject
     default: "{organization.name}"
