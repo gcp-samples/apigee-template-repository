@@ -1,0 +1,18 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: target-vertex-gemini
+type: feature
+description: >
+  Vertex AI target endpoint using the OpenAI-compatible Chat Completions
+  surface. Auth is GoogleAccessToken (Apigee mints an access token from
+  the deployed proxy's service account). Uses location=global to reach
+  the Vertex MaaS OpenAI compatibility layer; native Gemini models are
+  addressed as "google/gemini-2.5-flash" in the request body's "model"
+  field.
+
+targets:
+  - name: gemini-target
+    url: https://aiplatform.googleapis.com/v1/projects/{organization.name}/locations/global/endpoints/openapi/chat/completions
+    auth: GoogleAccessToken
+    scopes:
+      - https://www.googleapis.com/auth/cloud-platform

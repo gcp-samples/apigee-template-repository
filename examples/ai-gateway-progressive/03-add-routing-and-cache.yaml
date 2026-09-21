@@ -1,0 +1,47 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: aft-demo-03-add-routing-and-cache
+description: >
+  Stage 3 -- add routing and semantic cache. Delta from Stage 2:
+  three new features. `target-openai-gpt.yaml` adds the OpenAI target
+  and KVM bearer-token auth. `llm-routing.yaml` replaces the
+  ProxyEndpoint's route rules with a model-prefix switch
+  (gpt-*/openai-* -> openai-target; else -> gemini-target).
+  `llm-semantic-cache.yaml` attaches SemanticCacheLookup on
+  PreFlow.Request and SemanticCachePopulate on PostFlow.Response.
+  This template compiles + deploys cleanly with
+  `gcloud beta apigee apis import --from-template`. Fallback is
+  added in Stage 4.
+features:
+  - llm-base.yaml
+  - llm-openai-format.yaml
+  - target-vertex-gemini.yaml
+  - llm-model-armor.yaml
+  - target-openai-gpt.yaml
+  - llm-routing.yaml
+  - llm-semantic-cache.yaml
+parameters:
+  - name: BASE_PATH
+    default: /v1/chat/completions-stage3
+  - name: MA_TEMPLATE_PATH
+    default: projects/{organization.name}/locations/us-central1/templates/your-model-armor-template
+  - name: EMBEDDINGS_LOCATION
+    default: us-central1
+  - name: EMBEDDINGS_MODEL
+    default: text-embedding-005
+  - name: THRESHOLD
+    default: "0.9"
+  - name: TTL_SECONDS
+    default: "3600"
+  # Vertex Vector Search IDs -- fill in from your Vertex Vector Search
+  # index/endpoint. See the README for provisioning steps.
+  - name: VECTOR_INDEX_ID
+    default: "YOUR_INDEX_ID"
+  - name: VECTOR_INDEX_ENDPOINT_ID
+    default: "YOUR_INDEX_ENDPOINT_ID"
+  - name: VECTOR_INDEX_ENDPOINT_SUBDOMAIN
+    default: "YOUR_INDEX_ENDPOINT_SUBDOMAIN"
+  - name: PROJECT_NUMBER
+    default: "YOUR_PROJECT_NUMBER"
+  - name: DEPLOYED_INDEX_ID
+    default: your_deployed_index_id

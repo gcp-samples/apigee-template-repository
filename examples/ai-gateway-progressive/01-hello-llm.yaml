@@ -1,0 +1,12 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: aft-demo-01-hello-llm
+description: >
+  Stage 1 -- hello LLM. Composes the minimum set of features needed
+  for an OpenAI-format request to reach Gemini via Vertex's
+  OpenAI-compat endpoint. Five lines under `features:` proves the
+  AFT primitive: a runnable proxy from a template.
+features:
+  - llm-base.yaml
+  - llm-openai-format.yaml
+  - target-vertex-gemini.yaml

@@ -1,0 +1,20 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: aft-demo-02-add-model-armor
+description: >
+  Stage 2 -- add Model Armor. Delta from Stage 1: one line added to
+  `features:` (the `llm-model-armor.yaml` entry) and one `parameters:`
+  block for the MA template path. The template ID is provisioned by
+  provision.sh in an idempotent up-front step; the runtime variables
+  {organization.name} and {system.region.name} resolve at request
+  time to the deployed proxy's org and Apigee region.
+features:
+  - llm-base.yaml
+  - llm-openai-format.yaml
+  - target-vertex-gemini.yaml
+  - llm-model-armor.yaml
+parameters:
+  - name: BASE_PATH
+    default: /v1/chat/completions-stage2
+  - name: MA_TEMPLATE_PATH
+    default: projects/{organization.name}/locations/us-central1/templates/your-model-armor-template

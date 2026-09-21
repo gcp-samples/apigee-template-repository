@@ -1,0 +1,33 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: llm-base
+type: feature
+description: >
+  Base proxy skeleton for the AI Gateway demo. Defines the `default`
+  ProxyEndpoint bound to the parameterized `BASE_PATH` (default
+  /v1/chat/completions) with a single RouteRule to the primary
+  target (gemini-target). Because this feature declares the endpoint
+  under `endpoints:` (not `defaultEndpoint:`), the compiler creates
+  the endpoint on the proxy; downstream features then merge
+  additional flows in via their own `defaultEndpoint` blocks. CORS
+  is not handled -- this is a server-to-server / curl demo.
+  BASE_PATH is parameterized so all four stages can be deployed to
+  the same environment at once without basepath collisions (Stage 1
+  → /v1/chat/completions, Stage 2 → /v1/chat/completions-stage2,
+  etc.).
+
+parameters:
+  - name: BASE_PATH
+    displayName: Proxy base path
+    description: >
+      Base path this proxy is bound to on the runtime endpoint.
+      Each demo stage picks a distinct value so multiple stages can
+      coexist in the same environment.
+    default: /v1/chat/completions
+
+endpoints:
+  - name: default
+    basePath: "{BASE_PATH}"
+    routes:
+      - name: primary
+        target: gemini-target

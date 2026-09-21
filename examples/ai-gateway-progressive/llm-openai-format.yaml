@@ -1,0 +1,44 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: llm-openai-format
+type: feature
+description: >
+  Normalizes inbound requests to the OpenAI Chat Completions shape.
+  Extracts `$.model` to the flow variable `llm.model` and
+  `$.messages[-1].content` to `llm.prompt` for downstream policies
+  (routing, semantic cache, Model Armor). Runs in PreFlow.Request on
+  the default endpoint. Assumes the request body already conforms to
+  OpenAI shape -- no translation is performed here.
+
+defaultEndpoint:
+  name: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: EV-ExtractOpenAIRequest
+
+policies:
+  - name: EV-ExtractOpenAIRequest
+    type: ExtractVariables
+    content:
+      ExtractVariables:
+        metadata:
+          name: EV-ExtractOpenAIRequest
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: EV-ExtractOpenAIRequest
+        Source:
+          metadata:
+            clearPayload: "false"
+          _text: request
+        JSONPayload:
+          Variable:
+            - metadata:
+                name: model
+              JSONPath: $.model
+            - metadata:
+                name: prompt
+              JSONPath: $.messages[-1].content
+        VariablePrefix: llm
+        IgnoreUnresolvedVariables: "true"

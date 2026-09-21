@@ -1,0 +1,140 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: llm-semantic-cache
+type: feature
+description: >
+  Vertex Vector Search-backed semantic cache. On PreFlow.Request,
+  SemanticCacheLookup embeds `{llm.prompt}` and searches the
+  configured index endpoint; on cache-hit above `THRESHOLD` the
+  cached response is short-circuited back to the caller. On
+  PostFlow.Response (after the target call, non-fault path only),
+  SemanticCachePopulate upserts the response body into the index with
+  `TTL_SECONDS` lifetime. An AssignMessage sets
+  `x-apigee-cache: hit|miss` so the presenter can see cache behavior
+  in the demo terminal. All the endpoint IDs are parameterized so the
+  same feature file works against any GCP project + region + vector
+  index endpoint.
+
+parameters:
+  - name: EMBEDDINGS_LOCATION
+    displayName: Vertex embeddings region
+    description: Vertex AI region hosting the embeddings model.
+    default: us-central1
+  - name: EMBEDDINGS_MODEL
+    displayName: Vertex embeddings model
+    description: Vertex publisher model used to embed the prompt.
+    default: text-embedding-005
+  - name: VECTOR_INDEX_ENDPOINT_ID
+    displayName: Vertex Vector Search index endpoint ID
+    description: >
+      Numeric ID of the deployed indexEndpoint (created out-of-band).
+      Placeholder is left as {VECTOR_INDEX_ENDPOINT_ID} when unset;
+      demo will error loudly at request time if not provided.
+    default: "{VECTOR_INDEX_ENDPOINT_ID}"
+  - name: VECTOR_INDEX_ID
+    displayName: Vertex Vector Search index ID
+    description: >
+      Numeric ID of the underlying index (for upserts). See
+      VECTOR_INDEX_ENDPOINT_ID docstring.
+    default: "{VECTOR_INDEX_ID}"
+  - name: VECTOR_INDEX_ENDPOINT_SUBDOMAIN
+    displayName: Vertex Vector Search endpoint subdomain
+    description: >
+      Public endpoint subdomain shown in the Cloud Console index endpoint
+      details (e.g. "123456789") -- forms the hostname
+      "{subdomain}.{region}-{project-number}.vdb.vertexai.goog".
+    default: "{VECTOR_INDEX_ENDPOINT_SUBDOMAIN}"
+  - name: PROJECT_NUMBER
+    displayName: GCP project number (not name)
+    description: >
+      Numeric project number for the Vector Search public endpoint
+      hostname. Distinct from the project name -- the endpoint hostname
+      uses the numeric project number, not the human-readable name.
+      Get with: gcloud projects describe $GCP_PROJECT --format='value(projectNumber)'
+    default: "{PROJECT_NUMBER}"
+  - name: DEPLOYED_INDEX_ID
+    displayName: Vertex deployed index ID
+    description: String ID of the deployed index inside the endpoint.
+    default: "{DEPLOYED_INDEX_ID}"
+  - name: THRESHOLD
+    displayName: Semantic similarity threshold
+    description: Cosine similarity above which a lookup is treated as a hit.
+    default: "0.9"
+  - name: TTL_SECONDS
+    displayName: Cache entry TTL (seconds)
+    description: Time-to-live for populated cache entries.
+    default: "3600"
+
+defaultEndpoint:
+  name: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: SCLLookup
+    - name: PostFlow
+      mode: Response
+      steps:
+        - name: SCPPopulate
+          # Populate on cache miss only. Apigee sets `cached-content:
+          # true` as a native response header when SCL short-circuits
+          # on a hit -- no custom AssignMessage needed for
+          # observability. Condition uses single-quoted variable name
+          # because the namespaced policy has hyphens (Apigee's
+          # condition parser interprets `-` as subtraction unless the
+          # var name is single-quoted).
+          condition: "'SemanticCacheLookup.llm-semantic-cache-SCLLookup.cache_hit' is false"
+
+policies:
+  - name: SCLLookup
+    type: SemanticCacheLookup
+    content:
+      SemanticCacheLookup:
+        metadata:
+          name: SCLLookup
+          async: "false"
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: SCLLookup
+        IgnoreUnresolvedVariables: "true"
+        UserPromptSource:
+          _text: "{llm.prompt}"
+        Embeddings:
+          VertexAI:
+            URL:
+              _text: "https://{EMBEDDINGS_LOCATION}-aiplatform.googleapis.com/v1/projects/{organization.name}/locations/{EMBEDDINGS_LOCATION}/publishers/google/models/{EMBEDDINGS_MODEL}:predict"
+        SimilaritySearch:
+          VertexAI:
+            # Vector Search public-endpoint hostname uses the project
+            # NUMBER (not the project name), so it must be baked in
+            # via PROJECT_NUMBER macro -- {organization.name} would
+            # resolve to the org name at runtime and DNS would fail.
+            URL:
+              _text: "https://{VECTOR_INDEX_ENDPOINT_SUBDOMAIN}.{EMBEDDINGS_LOCATION}-{PROJECT_NUMBER}.vdb.vertexai.goog/v1/projects/{organization.name}/locations/{EMBEDDINGS_LOCATION}/indexEndpoints/{VECTOR_INDEX_ENDPOINT_ID}:findNeighbors"
+            DeployedIndexID:
+              _text: "{DEPLOYED_INDEX_ID}"
+            Threshold:
+              _text: "{THRESHOLD}"
+
+  - name: SCPPopulate
+    type: SemanticCachePopulate
+    content:
+      SemanticCachePopulate:
+        metadata:
+          name: SCPPopulate
+          async: "false"
+          continueOnError: "true"
+          enabled: "true"
+        DisplayName: SCPPopulate
+        IgnoreUnresolvedVariables: "true"
+        SimilaritySearch:
+          VertexAI:
+            URL:
+              _text: "https://{EMBEDDINGS_LOCATION}-aiplatform.googleapis.com/v1/projects/{organization.name}/locations/{EMBEDDINGS_LOCATION}/indexes/{VECTOR_INDEX_ID}:upsertDatapoints"
+        TTLInSeconds:
+          _text: "{TTL_SECONDS}"
+
+  # No custom cache-status AssignMessage: Apigee emits `cached-content:
+  # true` as a native response header on any request served from the
+  # semantic cache. To observe cache behavior, `curl -si <URL> | grep
+  # cached-content` -- present on hits, absent on misses.

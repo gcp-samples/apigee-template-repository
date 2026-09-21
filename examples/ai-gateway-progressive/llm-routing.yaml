@@ -1,0 +1,46 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: llm-routing
+type: feature
+description: >
+  Model-based routing. Replaces the default endpoint's RouteRules with
+  a two-way switch: if the request's `llm.model` value starts with
+  "google/" the request is routed to `gemini-target`; ANY OTHER
+  value (or an unset/empty model) routes to `openai-target`.
+
+  This is an inverted-default design chosen for forward compatibility.
+  The prior condition matched `StartsWith "gpt-"` which silently missed
+  every non-`gpt-*` OpenAI model (`o1-*`, `o3-*`, `o4-*`, `chatgpt-*`,
+  and whatever OpenAI ships next), routing them to Gemini where Vertex
+  rejects them with a 400 "Malformed publisher model" error. Inverting
+  the default means new OpenAI model families work with zero code
+  changes -- clients only need to prefix Gemini requests with `google/`.
+
+  Fires only after `llm-openai-format` has populated `llm.model` in
+  PreFlow. Because this feature declares a full endpoint by name, it
+  REPLACES the endpoint from `llm-base`. Downstream feature flows
+  (Model Armor, semantic cache) are re-merged in by the compiler's
+  defaultEndpoint pass.
+
+  Redeclares the BASE_PATH parameter (with the same default as
+  `llm-base`) so the replaced endpoint honors any template-level
+  BASE_PATH override. Otherwise Stage 3+ would silently revert to
+  the hardcoded default.
+
+parameters:
+  - name: BASE_PATH
+    displayName: Proxy base path
+    description: >
+      Base path this proxy is bound to. Must be redeclared here
+      because this feature replaces the endpoint from llm-base.
+    default: /v1/chat/completions
+
+endpoints:
+  - name: default
+    basePath: "{BASE_PATH}"
+    routes:
+      - name: gemini
+        condition: llm.model StartsWith "google/"
+        target: gemini-target
+      - name: openai
+        target: openai-target
