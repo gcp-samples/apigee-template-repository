@@ -1,25 +1,24 @@
 #!/usr/bin/env bash
-# deploy-stages-1-3.sh
-# --------------------
-# Imports and deploys stages 1, 2, and 3 of the AFT demo. Idempotent
-# (uses override=true on deployment). Does NOT deploy stage 4 -- that
-# one requires ./build.sh and --from-bundle (see README §1.1).
+# deploy.sh
+# ---------
+# Imports and deploys all four stages of the AFT demo. Idempotent
+# (uses override=true on deployment). Every stage deploys with
+# `gcloud beta apigee apis import --from-template`.
 #
-# Prerequisites (see README §2):
+# Prerequisites (see README):
 #   * gcloud logged in with an account that can create Apigee proxies
 #   * Runtime SA created and IAM configured
-#   * Apigee KVM `openai-credentials` exists (for stage 3)
-#   * Model Armor template `your-model-armor-template` exists (for stages 2-3)
-#   * Vector Search index endpoint deployed (for stage 3)
-#   * Run ./provision.sh once before this if unsure
+#   * Apigee KVM `openai-credentials` exists (for stages 3-4)
+#   * Model Armor template `your-model-armor-template` exists (for stages 2-4)
+#   * Vector Search index endpoint deployed (for stages 3-4)
 #
 # Usage:
 #   export APIGEE_ORG=YOUR_ORG
 #   export APIGEE_ENV=YOUR_ENV
 #   export GCP_PROJECT=YOUR_PROJECT
-#   ./deploy-stages-1-3.sh              # deploys stages 1, 2, and 3
-#   ./deploy-stages-1-3.sh 1            # deploys only stage 1
-#   ./deploy-stages-1-3.sh 1 3          # deploys stages 1 and 3
+#   ./deploy.sh                # deploys all four stages
+#   ./deploy.sh 1              # deploys only stage 1
+#   ./deploy.sh 1 3 4          # deploys stages 1, 3, and 4
 
 set -uo pipefail
 
@@ -64,11 +63,12 @@ STAGES=(
   "1|aft-demo-01-hello-llm|01-hello-llm.yaml"
   "2|aft-demo-02-add-model-armor|02-add-model-armor.yaml"
   "3|aft-demo-03-add-routing-and-cache|03-add-routing-and-cache.yaml"
+  "4|aft-demo-04-add-fallback|04-add-fallback.yaml"
 )
 
-# Parse args -- default to all three stages.
+# Parse args -- default to all four stages.
 if [ $# -eq 0 ]; then
-  requested="1 2 3"
+  requested="1 2 3 4"
 else
   requested="$*"
 fi
@@ -161,6 +161,7 @@ except Exception as e:
       1) path="/v1/chat/completions" ;;
       2) path="/v1/chat/completions-stage2" ;;
       3) path="/v1/chat/completions-stage3" ;;
+      4) path="/v1/chat/completions-stage4" ;;
     esac
     echo "[stage ${num}] smoke test: POST https://${APIGEE_HOSTNAME}${path}"
     smoke_code=$(curl -sS -o /dev/null -w '%{http_code}' \
@@ -184,9 +185,9 @@ if [ $overall_rc -eq 0 ]; then
 else
   echo "One or more stages had issues -- see output above."
   echo "Common causes:"
-  echo "  * KVM openai-credentials missing (run provision.sh)"
-  echo "  * Model Armor template missing (run provision.sh)"
-  echo "  * Runtime SA lacks aiplatform.user / modelarmor.user roles (README §2)"
-  echo "  * Vector Search index endpoint not deployed (README §7 -- stage 3 only)"
+  echo "  * KVM openai-credentials missing"
+  echo "  * Model Armor template missing"
+  echo "  * Runtime SA lacks aiplatform.user / modelarmor.user roles"
+  echo "  * Vector Search index endpoint not deployed (stages 3-4 only)"
 fi
 exit $overall_rc

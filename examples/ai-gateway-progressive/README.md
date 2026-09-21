@@ -1,8 +1,11 @@
-# llm-routing
+# ai-gateway-progressive
 
 Progressive 4-stage AI Gateway example: from a minimal "hello LLM"
 proxy to a full multi-provider gateway with routing, semantic cache,
 and cross-provider fallback.
+
+Accompanies the Apigee docs tutorial "Build a complete AI gateway
+with routing, fallback, Model Armor, and semantic cache".
 
 ## Stages
 
@@ -44,8 +47,7 @@ lines in the template's `features:` block.
 
 | File | Purpose |
 |:-----|:--------|
-| `build.sh` | Compile all 4 templates to bundle zips in `/tmp` |
-| `deploy-stages-1-3.sh` | Import + deploy stages 1-3 via `--from-template` |
+| `deploy.sh` | Import + deploy all 4 stages via `--from-template` (idempotent) |
 | `routing-diagnostic.sh` | 5-test matrix exercising routing behavior |
 
 ## Routing behavior (inverted default)
@@ -68,14 +70,13 @@ export APIGEE_ENV=YOUR_ENV
 export GCP_PROJECT=YOUR_PROJECT
 export APIGEE_HOSTNAME=YOUR_HOSTNAME
 
-./build.sh
-./deploy-stages-1-3.sh    # stages 1-3 deploy cleanly via --from-template
+./deploy.sh                # deploys all four stages
+./deploy.sh 4              # or deploy a single stage
 ```
 
-Stage 4 has a known AFT compiler bug (fault-rule XML gets wrapped in
-an extra `<Request>` element) that `build.sh` post-processes. For
-Stage 4 you must use `--from-bundle=/tmp/stage04-fixed.zip`, not
-`--from-template`.
+Every stage imports with plain
+`gcloud beta apigee apis import --from-template=<STAGE>.yaml` — no
+bundle post-processing required.
 
 Requires:
 - **KVM `openai-credentials/api-key`** for stages 3-4 (OpenAI API key)
