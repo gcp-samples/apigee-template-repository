@@ -1,0 +1,69 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: llm-model-armor
+type: feature
+description: >
+  Wraps the request/response with Model Armor prompt and response
+  sanitization. SanitizeUserPrompt runs after the request is
+  normalized (PreFlow.Request) and before the target call.
+  SanitizeModelResponse runs after the target returns and before the
+  response is written to the client (PostFlow.Response). The MA
+  template resource is parameterized via {MA_TEMPLATE_PATH} so a
+  single template file can be reused across environments.
+
+parameters:
+  - name: MA_TEMPLATE_PATH
+    displayName: Model Armor template resource path
+    description: >
+      Fully-qualified resource path of the Model Armor template.
+      Format: projects/{project}/locations/{location}/templates/{id}
+    default: projects/{organization.name}/locations/{system.region.name}/templates/your-model-armor-template
+
+defaultEndpoint:
+  name: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: MA-SanitizeUserPrompt
+    - name: PostFlow
+      mode: Response
+      steps:
+        - name: MA-SanitizeModelResponse
+
+policies:
+  - name: MA-SanitizeUserPrompt
+    type: SanitizeUserPrompt
+    content:
+      SanitizeUserPrompt:
+        metadata:
+          name: MA-SanitizeUserPrompt
+          async: "false"
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: MA-SanitizeUserPrompt
+        IgnoreUnresolvedVariables: "true"
+        ModelArmor:
+          TemplateName:
+            _text: "{MA_TEMPLATE_PATH}"
+        UserPromptSource:
+          _text: "{llm.prompt}"
+
+  - name: MA-SanitizeModelResponse
+    type: SanitizeModelResponse
+    content:
+      SanitizeModelResponse:
+        metadata:
+          name: MA-SanitizeModelResponse
+          async: "false"
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: MA-SanitizeModelResponse
+        IgnoreUnresolvedVariables: "true"
+        ModelArmor:
+          TemplateName:
+            _text: "{MA_TEMPLATE_PATH}"
+        UserPromptSource:
+          _text: "{llm.prompt}"
+        LLMResponseSource:
+          _text: "{jsonPath('$.choices[-1].message.content',response.content,true)}"

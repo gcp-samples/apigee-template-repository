@@ -1,0 +1,40 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: aft-demo-04-add-fallback
+description: >
+  Stage 4 -- add cross-provider fallback. THE FULL AI GATEWAY.
+  Delta from Stage 3: one line in `features:` -- `llm-fallback.yaml`.
+  On primary-target 4xx/5xx, a DefaultFaultRule fires a ServiceCallout
+  to the OTHER provider with the same prompt and returns that response.
+features:
+  - llm-base.yaml
+  - llm-openai-format.yaml
+  - target-vertex-gemini.yaml
+  - llm-model-armor.yaml
+  - target-openai-gpt.yaml
+  - llm-routing.yaml
+  - llm-semantic-cache.yaml
+  - llm-fallback.yaml
+parameters:
+  - name: BASE_PATH
+    default: /v1/chat/completions-stage4
+  - name: MA_TEMPLATE_PATH
+    default: projects/{organization.name}/locations/us-central1/templates/your-model-armor-template
+  - name: EMBEDDINGS_LOCATION
+    default: us-central1
+  - name: EMBEDDINGS_MODEL
+    default: text-embedding-005
+  - name: THRESHOLD
+    default: "0.9"
+  - name: TTL_SECONDS
+    default: "3600"
+  - name: VECTOR_INDEX_ID
+    default: "YOUR_INDEX_ID"
+  - name: VECTOR_INDEX_ENDPOINT_ID
+    default: "YOUR_INDEX_ENDPOINT_ID"
+  - name: VECTOR_INDEX_ENDPOINT_SUBDOMAIN
+    default: "YOUR_INDEX_ENDPOINT_SUBDOMAIN"
+  - name: PROJECT_NUMBER
+    default: "YOUR_PROJECT_NUMBER"
+  - name: DEPLOYED_INDEX_ID
+    default: your_deployed_index_id

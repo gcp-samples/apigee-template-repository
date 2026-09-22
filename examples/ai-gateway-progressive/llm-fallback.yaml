@@ -1,0 +1,375 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: llm-fallback
+type: feature
+description: >
+  Cross-provider fallback. When the primary target returns any 4xx or
+  5xx status, its DefaultFaultRule fires a ServiceCallout to the OTHER
+  provider with the same request body, then copies the fallback
+  response into the outbound response and sets a
+  `x-apigee-fallback: <primary>-to-<secondary>` header so the caller
+  can see the fallback fired.
+  Auth for the fallback ServiceCallout is handled inline: the Vertex
+  fallback path uses <Authentication><GoogleAccessToken/></Authentication>;
+  the OpenAI fallback path uses a KVM lookup (openai-credentials/api-key)
+  followed by a Bearer header on the SC Request message.
+  Attaches DefaultFaultRule to both `gemini-target` and `openai-target`
+  via the `targets` list. Uses target replacement (name-match) to
+  splice the fault rules into the existing target endpoints.
+
+parameters:
+  - name: FALLBACK_KVM_NAME
+    displayName: OpenAI credentials KVM name
+    description: Name of the environment-scoped KVM holding the OpenAI API key.
+    default: openai-credentials
+  - name: FALLBACK_KVM_KEY
+    displayName: OpenAI credentials KVM entry key
+    description: Entry key inside FALLBACK_KVM_NAME whose value is the OpenAI API key.
+    default: api-key
+
+targets:
+  # Vertex primary; on 4xx/5xx, fall back to OpenAI.
+  # Uses TWO mechanisms to guarantee the DefaultFaultRule fires on any
+  # 4xx/5xx from Vertex:
+  #   1. success.codes=2XX on HTTPTargetConnection.
+  #   2. An explicit RaiseFault in the target's PostFlow.Response,
+  #      conditional on response.status.code >= 400. This is the
+  #      belt-and-braces pattern -- some Apigee versions do not honor
+  #      success.codes reliably for all response shapes.
+  - name: gemini-target
+    httpTargetConnection:
+      Properties:
+        Property:
+          metadata:
+            name: success.codes
+          _text: "2XX"
+      URL: https://aiplatform.googleapis.com/v1/projects/{organization.name}/locations/global/endpoints/openapi/chat/completions
+      Authentication:
+        GoogleAccessToken:
+          Scopes:
+            Scope: https://www.googleapis.com/auth/cloud-platform
+    flows:
+      - name: PostFlow
+        mode: Response
+        steps:
+          - name: RF-TargetErrorToFault
+            condition: response.status.code >= 400
+    defaultFaultRule:
+      name: FallbackToOpenAI
+      steps:
+        - name: KVM-GetOpenAIKey
+        - name: AM-BuildOpenAIFallbackRequest
+        - name: SC-FallbackToOpenAI
+        - name: AM-CopyOpenAIFallbackResponse
+
+  # OpenAI primary; on 4xx/5xx, fall back to Vertex. Also carries the
+  # primary-path KVM lookup + Authorization header, since this feature
+  # replaces the target from `target-openai-gpt`.
+  #
+  # JS-StripOpenAIModelPrefix runs first on the primary path so that
+  # `openai/<name>` model IDs are normalized before hitting the OpenAI
+  # API (matching the behavior of stage 3's openai-target). Without
+  # this, `openai/gpt-4o-mini` reaches OpenAI verbatim and returns
+  # "invalid model ID" -- which would then trigger the fallback to
+  # Vertex, defeating the caller's explicit provider choice.
+  - name: openai-target
+    httpTargetConnection:
+      Properties:
+        Property:
+          metadata:
+            name: success.codes
+          _text: "2XX"
+      URL: https://api.openai.com/v1/chat/completions
+    flows:
+      - name: PreFlow
+        mode: Request
+        steps:
+          - name: JS-StripOpenAIModelPrefix
+          - name: KVM-GetOpenAIKey
+          - name: AM-SetOpenAIAuth
+      - name: PostFlow
+        mode: Response
+        steps:
+          - name: RF-TargetErrorToFault
+            condition: response.status.code >= 400
+    defaultFaultRule:
+      name: FallbackToVertex
+      steps:
+        - name: AM-BuildVertexFallbackRequest
+        - name: SC-FallbackToVertex
+        - name: AM-CopyVertexFallbackResponse
+
+policies:
+  # -- Shared: convert a non-2xx target response into a fault so the
+  #    DefaultFaultRule fires. Referenced from both targets' PostFlow.
+
+  - name: RF-TargetErrorToFault
+    type: RaiseFault
+    content:
+      RaiseFault:
+        metadata:
+          name: RF-TargetErrorToFault
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: RF-TargetErrorToFault
+        IgnoreUnresolvedVariables: "true"
+        # Empty FaultResponse -- we do NOT want to synthesize a response
+        # here. The DefaultFaultRule steps will construct the real
+        # response from the fallback ServiceCallout.
+
+  # -- Primary-path policies for openai-target (duplicated from
+  #    target-openai-gpt because this feature replaces the target definition
+  #    and the compiler namespaces policy references per-feature). --
+
+  - name: JS-StripOpenAIModelPrefix
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          name: JS-StripOpenAIModelPrefix
+          timeLimit: "200"
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: JS-StripOpenAIModelPrefix
+        Properties: {}
+        ResourceURL:
+          _text: "jsc://strip-openai-model-prefix.js"
+
+  - name: KVM-GetOpenAIKey
+    type: KeyValueMapOperations
+    content:
+      KeyValueMapOperations:
+        metadata:
+          name: KVM-GetOpenAIKey
+          mapIdentifier: "{FALLBACK_KVM_NAME}"
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: KVM-GetOpenAIKey
+        ExpiryTimeInSecs: "300"
+        Get:
+          metadata:
+            assignTo: private.openai.apiKey
+          Key:
+            Parameter:
+              _text: "{FALLBACK_KVM_KEY}"
+        Scope: environment
+
+  - name: AM-SetOpenAIAuth
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-SetOpenAIAuth
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: AM-SetOpenAIAuth
+        Set:
+          Headers:
+            Header:
+              metadata:
+                name: Authorization
+              _text: "Bearer {private.openai.apiKey}"
+        IgnoreUnresolvedVariables: "false"
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: request
+
+  # -- OpenAI fallback path (called when Vertex primary fails) --------------
+  #    Reuses KVM-GetOpenAIKey above -- both flows populate
+  #    private.openai.apiKey.
+
+  - name: AM-BuildOpenAIFallbackRequest
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-BuildOpenAIFallbackRequest
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: AM-BuildOpenAIFallbackRequest
+        AssignTo:
+          metadata:
+            createNew: "true"
+            transport: http
+            type: request
+          _text: fallbackRequest
+        Set:
+          Verb: POST
+          Payload:
+            metadata:
+              contentType: application/json
+            # Rebuild the payload with a valid OpenAI model, keeping
+            # the original prompt from llm.prompt. In prod you'd
+            # translate the incoming model name via a mapping table.
+            _text: '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"{llm.prompt}"}]}'
+          Headers:
+            Header:
+              - metadata:
+                  name: Authorization
+                _text: "Bearer {private.openai.apiKey}"
+              - metadata:
+                  name: Content-Type
+                _text: application/json
+        IgnoreUnresolvedVariables: "false"
+
+  - name: SC-FallbackToOpenAI
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          name: SC-FallbackToOpenAI
+          async: "false"
+          continueOnError: "true"
+          enabled: "true"
+        DisplayName: SC-FallbackToOpenAI
+        Request:
+          metadata:
+            variable: fallbackRequest
+        Response:
+          _text: fallbackResponse
+        HTTPTargetConnection:
+          URL: https://api.openai.com/v1/chat/completions
+
+  - name: AM-CopyOpenAIFallbackResponse
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-CopyOpenAIFallbackResponse
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: AM-CopyOpenAIFallbackResponse
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: response
+        Set:
+          StatusCode: "{fallbackResponse.status.code}"
+          ReasonPhrase: "{fallbackResponse.reason.phrase}"
+          Payload:
+            metadata:
+              contentType: application/json
+            _text: "{fallbackResponse.content}"
+          Headers:
+            Header:
+              - metadata:
+                  name: Content-Type
+                _text: application/json
+              - metadata:
+                  name: x-apigee-fallback
+                _text: gemini-to-openai
+        IgnoreUnresolvedVariables: "true"
+
+  # -- Vertex fallback path (called when OpenAI primary fails) --------------
+
+  - name: AM-BuildVertexFallbackRequest
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-BuildVertexFallbackRequest
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: AM-BuildVertexFallbackRequest
+        AssignTo:
+          metadata:
+            createNew: "true"
+            transport: http
+            type: request
+          _text: fallbackRequest
+        Set:
+          Verb: POST
+          Payload:
+            metadata:
+              contentType: application/json
+            # Rebuild the payload with a valid Vertex-OpenAI-compat
+            # model, keeping the original prompt. In prod you'd
+            # translate model names via a mapping table.
+            _text: '{"model":"google/gemini-2.5-flash","messages":[{"role":"user","content":"{llm.prompt}"}]}'
+          Headers:
+            Header:
+              metadata:
+                name: Content-Type
+              _text: application/json
+        IgnoreUnresolvedVariables: "false"
+
+  - name: SC-FallbackToVertex
+    type: ServiceCallout
+    content:
+      ServiceCallout:
+        metadata:
+          name: SC-FallbackToVertex
+          async: "false"
+          continueOnError: "true"
+          enabled: "true"
+        DisplayName: SC-FallbackToVertex
+        Request:
+          metadata:
+            variable: fallbackRequest
+        Response:
+          _text: fallbackResponse
+        HTTPTargetConnection:
+          URL: https://aiplatform.googleapis.com/v1/projects/{organization.name}/locations/global/endpoints/openapi/chat/completions
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
+
+  - name: AM-CopyVertexFallbackResponse
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-CopyVertexFallbackResponse
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: AM-CopyVertexFallbackResponse
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: response
+        Set:
+          StatusCode: "{fallbackResponse.status.code}"
+          ReasonPhrase: "{fallbackResponse.reason.phrase}"
+          Payload:
+            metadata:
+              contentType: application/json
+            _text: "{fallbackResponse.content}"
+          Headers:
+            Header:
+              - metadata:
+                  name: Content-Type
+                _text: application/json
+              - metadata:
+                  name: x-apigee-fallback
+                _text: openai-to-gemini
+        IgnoreUnresolvedVariables: "true"
+
+resources:
+  - name: strip-openai-model-prefix.js
+    type: jsc
+    content: |
+      // Strips a leading "openai/" prefix from the JSON payload's
+      // "model" field so downstream (api.openai.com) receives the
+      // canonical model name. No-op if the field is missing, already
+      // canonical, or the body isn't parseable JSON.
+      // Duplicated from target-openai-gpt because llm-fallback replaces
+      // openai-target entirely (name-match target replacement).
+      try {
+        var raw = context.getVariable("request.content");
+        if (!raw) { print("no request.content, skipping"); }
+        else {
+          var body = JSON.parse(raw);
+          if (body && typeof body.model === "string" &&
+              body.model.indexOf("openai/") === 0) {
+            body.model = body.model.substring("openai/".length);
+            context.setVariable("request.content", JSON.stringify(body));
+          }
+        }
+      } catch (e) {
+        print("strip-openai-model-prefix skipped: " + e);
+      }

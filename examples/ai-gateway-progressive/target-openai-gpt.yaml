@@ -1,0 +1,112 @@
+gateway: apigee
+schemaVersion: 1.0.0
+name: target-openai-gpt
+type: feature
+description: >
+  OpenAI direct target endpoint. Looks up the API key from the
+  environment-scoped KVM `openai-credentials` (key: `api-key`) and
+  sets it as a Bearer token on the outbound request. Policies live on
+  the TargetEndpoint's PreFlow so they run after routing selects this
+  target but before the outbound HTTP call. KVM must exist before
+  deploy -- see provision.sh.
+
+  Also strips a leading "openai/" prefix from `$.model` before
+  forwarding. Some clients (LiteLLM, OpenRouter, our own routing
+  convention) send fully-qualified model IDs like "openai/gpt-4o-mini";
+  the OpenAI API rejects those as "invalid model ID". The
+  JS-StripOpenAIModelPrefix step normalizes the payload so both
+  "gpt-4o-mini" and "openai/gpt-4o-mini" reach OpenAI as "gpt-4o-mini".
+  Runs BEFORE KVM/Auth so a malformed payload never reaches the outbound
+  HTTP call regardless of auth setup.
+
+targets:
+  - name: openai-target
+    url: https://api.openai.com/v1/chat/completions
+    flows:
+      - name: PreFlow
+        mode: Request
+        steps:
+          - name: JS-StripOpenAIModelPrefix
+          - name: KVM-GetOpenAIKey
+          - name: AM-SetOpenAIAuth
+
+policies:
+  - name: JS-StripOpenAIModelPrefix
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          name: JS-StripOpenAIModelPrefix
+          timeLimit: "200"
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: JS-StripOpenAIModelPrefix
+        Properties: {}
+        ResourceURL:
+          _text: "jsc://strip-openai-model-prefix.js"
+
+  - name: KVM-GetOpenAIKey
+    type: KeyValueMapOperations
+    content:
+      KeyValueMapOperations:
+        metadata:
+          name: KVM-GetOpenAIKey
+          mapIdentifier: openai-credentials
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: KVM-GetOpenAIKey
+        ExpiryTimeInSecs: "300"
+        Get:
+          metadata:
+            assignTo: private.openai.apiKey
+          Key:
+            Parameter:
+              _text: api-key
+        Scope: environment
+
+  - name: AM-SetOpenAIAuth
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          name: AM-SetOpenAIAuth
+          continueOnError: "false"
+          enabled: "true"
+        DisplayName: AM-SetOpenAIAuth
+        Set:
+          Headers:
+            Header:
+              metadata:
+                name: Authorization
+              _text: "Bearer {private.openai.apiKey}"
+        IgnoreUnresolvedVariables: "false"
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: request
+
+resources:
+  - name: strip-openai-model-prefix.js
+    type: jsc
+    content: |
+      // Strips a leading "openai/" prefix from the JSON payload's
+      // "model" field so downstream (api.openai.com) receives the
+      // canonical model name. No-op if the field is missing, already
+      // canonical, or the body isn't parseable JSON.
+      try {
+        var raw = context.getVariable("request.content");
+        if (!raw) { print("no request.content, skipping"); }
+        else {
+          var body = JSON.parse(raw);
+          if (body && typeof body.model === "string" &&
+              body.model.indexOf("openai/") === 0) {
+            body.model = body.model.substring("openai/".length);
+            context.setVariable("request.content", JSON.stringify(body));
+          }
+        }
+      } catch (e) {
+        // Don't fail the request on a malformed body -- let OpenAI
+        // return its own error. Just log for Trace.
+        print("strip-openai-model-prefix skipped: " + e);
+      }
