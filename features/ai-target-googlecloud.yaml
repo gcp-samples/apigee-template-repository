@@ -30,7 +30,7 @@ targets:
         mode: Request
         steps:
         - name: AM-SetGoogleToken
-          condition: request.header.Authorization == null
+          condition: request.header.Authorization == null or request.header.Authorization !=| "Bearer ya29."
   - name: googlecloud-oai
     url: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/endpoints/openapi/chat/completions
     flows:
@@ -38,7 +38,7 @@ targets:
         mode: Request
         steps:
         - name: AM-SetGoogleToken
-          condition: request.header.Authorization == null
+          condition: request.header.Authorization == null or request.header.Authorization !=| "Bearer ya29."
   - name: googlecloud
     url: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/publishers/{ai.provider}/models/{ai.model}:{ai.method}
     flows:
@@ -46,7 +46,7 @@ targets:
         mode: Request
         steps:
         - name: AM-SetGoogleToken
-          condition: request.header.Authorization == null
+          condition: request.header.Authorization == null or request.header.Authorization !=| "Bearer ya29."
 policies:
   - name: AM-SetGoogleToken
     type: AssignMessage

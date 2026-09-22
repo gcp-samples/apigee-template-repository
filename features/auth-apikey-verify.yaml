@@ -63,7 +63,7 @@ policies:
           Headers:
             Header:
               metadata:
-                name: x-ai-key
+                name: x-api-key
         AssignVariable:
           Name: originalHostName
           Ref: request.header.host
@@ -85,6 +85,6 @@ policies:
         Properties: {}
         APIKey:
           metadata:
-            ref: request.header.x-ai-key
+            ref: request.header.x-api-key
 resources: []
 tests: []

@@ -18,10 +18,29 @@ endpoints:
       - name: PreFlow
         mode: Request
         steps:
+          - name: JS-ExtractApiKey
+            condition: request.header.Authorization != null and request.header.Authorization !=| "Bearer ya29." and request.header.x-api-key == null
           - name: OAS-Validation
     faultRules: []
 targets: []
 policies:
+  - name: JS-ExtractApiKey
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-ExtractApiKey
+        DisplayName: JS-ExtractApiKey
+        Properties: {}
+        Source: |
+          var authHeader = context.getVariable("request.header.Authorization") || "";
+          var match = authHeader.match(/^Bearer\s+(.+)$/i);
+          if (match && match[1]) {
+            context.setVariable("request.header.x-api-key", match[1].trim());
+          }
   - name: OAS-Validation
     type: OASValidation
     content:
