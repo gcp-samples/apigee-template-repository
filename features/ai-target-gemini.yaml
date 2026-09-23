@@ -60,6 +60,11 @@ policies:
               metadata:
                 name: x-goog-api-key
               _text: "{GeminiApiKey}"
+        Remove:
+          Headers:
+            Header:
+              metadata:
+                name: Authorization
         IgnoreUnresolvedVariables: "true"
         AssignTo:
           metadata:
