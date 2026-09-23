@@ -4,6 +4,7 @@ schemaVersion: 1.0.0
 type: feature
 documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-target-gemini.yaml"
 description: Proxy for Google Gemini models.
+parameters: []
 defaultEndpoint:
   name: default
   routes:
@@ -11,11 +12,59 @@ defaultEndpoint:
       condition: target.route = "gemini"
       target: gemini
 endpoints: []
-parameters: []
 targets:
   - name: gemini
     url: https://generativelanguage.googleapis.com/v1beta/interactions
-    flows: []
-policies: []
+    flows:
+      - name: PreFlow
+        mode: Request
+        steps:
+          - name: KVM-LoadCredentials
+            condition: request.header.x-goog-api-key == null
+          - name: AM-SetHeader
+            condition: request.header.x-goog-api-key == null
+    faultRules: []
+policies:
+  - name: KVM-LoadCredentials
+    type: KeyValueMapOperations
+    content:
+      KeyValueMapOperations:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: KVM-LoadCredentials
+          mapIdentifier: AI-Config
+        DisplayName: KVM-LoadCredentials
+        Properties: {}
+        ExclusiveCache: "false"
+        ExpiryTimeInSecs: "300"
+        Get:
+          - metadata:
+              assignTo: GeminiApiKey
+            Key:
+              Parameter: GeminiApiKey
+        Scope: environment
+  - name: AM-SetHeader
+    type: AssignMessage
+    content:
+      AssignMessage:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: AM-SetHeader
+        DisplayName: AM-SetHeader
+        Properties: {}
+        Set:
+          Headers:
+            Header:
+              metadata:
+                name: x-goog-api-key
+              _text: "{GeminiApiKey}"
+        IgnoreUnresolvedVariables: "true"
+        AssignTo:
+          metadata:
+            createNew: "false"
+            transport: http
+            type: request
 resources: []
 tests: []
