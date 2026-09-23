@@ -98,7 +98,9 @@ Before or in addition to deploying to a remote Apigee X organization, you can te
   - Runs the authentic Google Apigee runtime inside a local Docker container or hosted Cloud Run instance.
   - Supports full-fidelity Java policy execution, local KVMs, products, developer apps, and interactive transaction tracing.
   - Useful for local integration testing, automated CLI test suites, and debugging. For local Docker setup, see the [Apigee Local Emulator Guide](emulator/README.md).
+  - Official documentation: [Google Cloud Apigee Emulator Docs](https://docs.cloud.google.com/apigee/docs/api-platform/local-development/vscode/manage-apigee-emulator).
   - Hosted online console: [Apigee Emulator Web Tester](https://apigee-emulator-ghfontasua-ew.a.run.app/tester/).
+  - Source code repository: [`apigee-emulator-service` on GitHub](https://github.com/tyayers/apigee-emulator-service).
 
 - **Apigee Preflight (OSS Bungee TypeScript Runtime)**:
   - An open-source, lightweight TypeScript runtime explorer and interactive test console.
