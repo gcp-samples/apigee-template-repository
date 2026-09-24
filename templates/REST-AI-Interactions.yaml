@@ -7,7 +7,7 @@ features:
   - ../features/ai-endpoint-interactions.yaml
   - ../features/ai-target-gemini.yaml
   - ../features/ai-model-preprocess.yaml
-  - ../features/auth-apikey-verify.yaml-
+  - ../features/auth-apikey-verify.yaml
   - ../features/ai-model-postprocess.yaml
 parameters:
   - name: SimpleModel

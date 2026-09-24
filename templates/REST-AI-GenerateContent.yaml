@@ -7,6 +7,7 @@ features:
   - ../features/ai-endpoint-content.yaml
   - ../features/ai-target-googlecloud.yaml
   - ../features/ai-model-preprocess.yaml
+  - ../features/auth-apikey-verify.yaml
   - ../features/ai-model-failover.yaml
   - ../features/ai-model-postprocess.yaml
 parameters:
