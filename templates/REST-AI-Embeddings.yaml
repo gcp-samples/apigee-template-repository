@@ -1,4 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
 name: REST-AI-Embeddings
+displayName: Embeddings API
 type: template
 description: API template for REST-AI-Embeddings
 gateway: apigee
