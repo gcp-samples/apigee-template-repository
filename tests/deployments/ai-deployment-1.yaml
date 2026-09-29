@@ -5,10 +5,13 @@ name: ai-deployment-1
 type: deployment
 templates:
   - REST-AI-Completions.yaml
+  - REST-AI-Completions-Anonymized.yaml
+  - REST-AI-Completions-Screened.yaml
   - REST-AI-Embeddings.yaml
   - REST-AI-GenerateContent.yaml
   - REST-AI-Interactions.yaml
   - REST-AI-Messages.yaml
+  - MCP-CustomerService.yaml
 products:
 - name: ai-starter-package
   displayName: AI Starter Package
@@ -110,7 +113,7 @@ products:
     - apiSource: MCP-CustomerService
       protocol: MCP
       operations:
-        - name: tools/call/customers_list
+        - name: tools/call/list_customers
       quota:
         limit: "10"
         interval: "1"
@@ -217,7 +220,7 @@ products:
     - apiSource: MCP-CustomerService
       protocol: MCP
       operations:
-        - name: tools/call/customers_list
+        - name: tools/call/list_customers
       quota:
         limit: "10"
         interval: "1"

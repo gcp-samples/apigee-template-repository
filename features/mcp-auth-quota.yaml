@@ -1,0 +1,47 @@
+name: mcp-auth-quota
+displayName: mcp-auth-quota
+type: feature
+description: mcp-auth-quota
+documentation: ""
+gateway: apigee
+schemaVersion: 1.0.0
+categories: []
+parameters: []
+defaultEndpoint:
+  name: default
+  basePath: /customerservice
+  routes:
+    - name: default
+      target: default
+  flows:
+    - name: PreFlow
+      mode: Request
+      steps:
+        - name: PP-ParsePayload
+  faultRules: []
+defaultTarget:
+  name: default
+  url: https://mcp-customer-service-323709580283.europe-west1.run.app
+  flows: []
+  faultRules: []
+  httpTargetConnection:
+    Properties: {}
+    URL: https://mcp-customer-service-323709580283.europe-west1.run.app
+endpoints: []
+targets: []
+policies:
+  - name: PP-ParsePayload
+    type: ParsePayload
+    content:
+      ParsePayload:
+        metadata:
+          async: "false"
+          continueOnError: "false"
+          enabled: "true"
+          name: PP-ParsePayload
+        DisplayName: PP-ParsePayload
+        Source: request
+        PayloadType: JSON-RPC-2.0
+        Protocol: MCP
+resources: []
+tests: []

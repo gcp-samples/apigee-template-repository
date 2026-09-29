@@ -1,0 +1,19 @@
+name: MCP-CustomerService
+type: template
+description: API template for MCP-CustomerService
+gateway: apigee
+schemaVersion: 1.0.0
+features:
+  - ../features/mcp-proxy-customerservice.yaml
+  - ../features/mcp-auth-quota.yaml
+  - ../features/auth-apikey-verify.yaml
+parameters: []
+endpoints:
+  - name: customerservice
+    basePath: /customerservice
+    routes:
+      - name: customerservice
+        target: customerservice
+targets:
+  - name: customerservice
+    url: https://mcp-customer-service-323709580283.europe-west1.run.app

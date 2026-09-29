@@ -1,0 +1,28 @@
+name: mcp-proxy-customerservice
+displayName: mcp-proxy-customerservice
+type: feature
+description: mcp-proxy-customerservice
+documentation: ""
+gateway: apigee
+schemaVersion: 1.0.0
+categories: []
+parameters: []
+endpoints:
+  - name: customerservice
+    basePath: /customerservice
+    routes:
+      - name: customerservice
+        target: customerservice
+    flows: []
+    faultRules: []
+targets:
+  - name: customerservice
+    url: https://mcp-customer-service-323709580283.europe-west1.run.app
+    flows: []
+    faultRules: []
+    httpTargetConnection:
+      Properties: {}
+      URL: https://mcp-customer-service-323709580283.europe-west1.run.app
+policies: []
+resources: []
+tests: []
