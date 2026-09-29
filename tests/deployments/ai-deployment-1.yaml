@@ -13,6 +13,40 @@ templates:
   - REST-AI-Messages.yaml
   - MCP-CustomerService.yaml
 products:
+- name: mcp-package
+  displayName: MCP Pakcage
+  type: product
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: Starter tier for MCP & LLM Model access.
+  access: public
+  approvalType: auto
+  environments:
+    - default-dev
+  proxies:
+    - MCP-CustomerService
+  apiResources: []
+  quota: "50000"
+  quotaInterval: "1"
+  quotaTimeUnit: month
+  scopes: []
+  operations: []
+  llmOperations: []
+  payloadOperations:
+    - apiSource: MCP-CustomerService
+      protocol: MCP
+      operations:
+        - name: tools/list
+    - apiSource: MCP-CustomerService
+      protocol: MCP
+      operations:
+        - name: tools/call/list_customers
+      quota:
+        limit: "10"
+        interval: "1"
+        timeUnit: minute
+  graphqlOperations: []
+  grpcOperations: []
 - name: ai-starter-package
   displayName: AI Starter Package
   type: product
@@ -105,19 +139,7 @@ products:
           methods:
             - POST
           model: claude-haiku-4.5
-  payloadOperations:
-    - apiSource: MCP-CustomerService
-      protocol: MCP
-      operations:
-        - name: tools/list
-    - apiSource: MCP-CustomerService
-      protocol: MCP
-      operations:
-        - name: tools/call/list_customers
-      quota:
-        limit: "10"
-        interval: "1"
-        timeUnit: minute
+  payloadOperations: []
   graphqlOperations: []
   grpcOperations: []
 - name: ai-premium-package
@@ -134,18 +156,12 @@ products:
     - REST-Orders
     - REST-AI-Completions
     - REST-AI-Messages
-    - MCP-CustomerService
   apiResources: []
   quota: "50000"
   quotaInterval: "1"
   quotaTimeUnit: month
   scopes: []
-  operations:
-    - apiSource: REST-Orders
-      operations:
-        - name: /json
-          methods: []
-      quota: {}
+  operations: []
   llmOperations:
     - apiSource: REST-AI-Completions
       operations:
@@ -212,19 +228,7 @@ products:
           methods:
             - POST
           model: claude-haiku-4.5
-  payloadOperations:
-    - apiSource: MCP-CustomerService
-      protocol: MCP
-      operations:
-        - name: tools/list
-    - apiSource: MCP-CustomerService
-      protocol: MCP
-      operations:
-        - name: tools/call/list_customers
-      quota:
-        limit: "10"
-        interval: "1"
-        timeUnit: minute
+  payloadOperations: []
   graphqlOperations: []
   grpcOperations: []
 users:
@@ -247,6 +251,7 @@ users:
       status: approved
       products:
         - ai-starter-package
+        - mcp-package
       scopes: []
       attributes: []
       credentials:
@@ -266,6 +271,7 @@ users:
       status: approved
       products:
         - ai-premium-package
+        - mcp-package
       scopes: []
       attributes: []
       credentials:
@@ -287,7 +293,7 @@ tests:
 
       ### Apigee Gateway Flow
       1. **API Key Verification (`VA-VerifyKey`)**:
-          - Extracts the client's `x-api-key` header (`test-app-key-123`).
+          - Extracts the client's `x-api-key` header (`starter-app-key-123`).
           - Validates the key against the local Cassandra datastore table `kms_hybrid_hybrid.app_credential`.
           - Ensures the associated API Product (`test-product`) has authorized access to `REST-AI-Interactions`.
       2. **Token Quota Enforcement (`LTQ-QuotaEnforce`)**:
@@ -304,7 +310,7 @@ tests:
     path: /v1beta/interactions
     method: POST
     headers:
-      x-api-key: test-app-key-123
+      x-api-key: starter-app-key-123
     body: |
       {
         "model": "gemini-3.5-flash-lite",
@@ -335,7 +341,7 @@ tests:
     path: /v1/chat/completions
     method: POST
     headers:
-      x-api-key: test-app-key-123
+      x-api-key: starter-app-key-123
     body: |
       {
         "model": "google/gemini-3.5-flash-lite",
@@ -369,7 +375,7 @@ tests:
     path: /v1/projects/{GOOGLE_CLOUD_PROJECT}/locations/global/publishers/google/models/gemini-3.5-flash-lite:generateContent
     method: POST
     headers:
-      x-api-key: test-app-key-123
+      x-api-key: starter-app-key-123
     body: |
       {
         "contents": [
@@ -404,7 +410,7 @@ tests:
     path: /v1/messages
     method: POST
     headers:
-      x-api-key: test-app-key-123
+      x-api-key: starter-app-key-123
     body: |
       {
         "model": "google/gemini-3.5-flash-lite",
@@ -451,7 +457,7 @@ tests:
     path: /customerservice/mcp
     method: POST
     headers:
-      x-api-key: test-app-key-123
+      x-api-key: starter-app-key-123
     body: |
       {"jsonrpc": "2.0", "id":0, "method": "tools/list"}
     assertions:
