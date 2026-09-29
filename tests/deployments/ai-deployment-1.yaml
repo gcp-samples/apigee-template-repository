@@ -444,3 +444,15 @@ tests:
       }
     assertions:
       - response.status == 200
+  - name: mcp-test1
+    description: This tests the CustomerService MCP API.
+    documentation: ""
+    proxy: MCP-CustomerService
+    path: /customerservice/mcp
+    method: POST
+    headers:
+      x-api-key: test-app-key-123
+    body: |
+      {"jsonrpc": "2.0", "id":0, "method": "tools/list"}
+    assertions:
+      - response.status == 200
