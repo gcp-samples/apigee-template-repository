@@ -25,8 +25,7 @@ parameters:
 defaultEndpoint:
   name: default
   basePath: /ai-model-routing
-  routes:
-    - name: default
+  routes: []
   flows:
     - name: PreFlow
       mode: Request
