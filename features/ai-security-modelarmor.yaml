@@ -6,7 +6,11 @@ documentation: "https://gcp-samples.github.io/apigee-template-repository?file=fe
 gateway: apigee
 schemaVersion: 1.0.0
 categories: []
-parameters: []
+parameters:
+  - name: GoogleCloudProject
+    default: "{organization.name}"
+  - name: ModelArmorTemplate
+    default: "projects/{GoogleCloudProject}/locations/eu/templates/default-ma-template"
 defaultEndpoint:
   name: default
   basePath: /ai-security-modelarmor
@@ -42,7 +46,7 @@ policies:
         IgnoreUnresolvedVariables: "false"
         DisplayName: SUP-SanitizePrompt
         ModelArmor:
-          TemplateName: projects/{organization.name}/locations/eu/templates/default-ma-template
+          TemplateName: "{ModelArmorTemplate}"
         UserPromptSource: "{ai.requestPrompt}"
 resources: []
 tests: []

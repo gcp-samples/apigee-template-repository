@@ -1,0 +1,108 @@
+- name: dc_ai_cost_center
+  displayName: dc_ai_cost_center
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: Cost center
+  collectorType: STRING
+  createdAt: "1787223119227"
+  lastModifiedAt: "1787223119227"
+- name: dc_ai_model
+  displayName: dc_ai_model
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: Model name
+  collectorType: STRING
+  createdAt: "1787223117359"
+  lastModifiedAt: "1787223117359"
+- name: dc_ai_prompt_token_count
+  displayName: dc_ai_prompt_token_count
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: The prompt token count
+  collectorType: INTEGER
+  createdAt: "1787232673740"
+  lastModifiedAt: "1787232673740"
+- name: dc_ai_provider
+  displayName: dc_ai_provider
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: Model provider
+  collectorType: STRING
+  createdAt: "1787223118298"
+  lastModifiedAt: "1787223118298"
+- name: dc_ai_request_cost
+  displayName: dc_ai_request_cost
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: Request cost
+  collectorType: FLOAT
+  createdAt: "1787223125313"
+  lastModifiedAt: "1787223125313"
+- name: dc_ai_response_cost
+  displayName: dc_ai_response_cost
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: Response cost
+  collectorType: FLOAT
+  createdAt: "1787223126241"
+  lastModifiedAt: "1787223126241"
+- name: dc_ai_response_token_count
+  displayName: dc_ai_response_token_count
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: The response token count
+  collectorType: INTEGER
+  createdAt: "1787232680496"
+  lastModifiedAt: "1787232680496"
+- name: dc_ai_response_type
+  displayName: dc_ai_response_type
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: The response type, either streaming or non-streaming
+  collectorType: STRING
+  createdAt: "1787232687654"
+  lastModifiedAt: "1787232687654"
+- name: dc_ai_time_first_token
+  displayName: dc_ai_time_first_token
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: The time in milliseconds to the first token
+  collectorType: INTEGER
+  createdAt: "1787232699821"
+  lastModifiedAt: "1787232699821"
+- name: dc_ai_total_cost
+  displayName: dc_ai_total_cost
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: Total cost
+  collectorType: FLOAT
+  createdAt: "1787223127168"
+  lastModifiedAt: "1787223127168"
+- name: dc_ai_total_token_count
+  displayName: dc_ai_total_token_count
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: The total token count
+  collectorType: INTEGER
+  createdAt: "1787232663533"
+  lastModifiedAt: "1787232663533"
+- name: dc_ai_user
+  displayName: dc_ai_user
+  type: datacollector
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: AI user
+  collectorType: STRING
+  createdAt: "1787223128093"
+  lastModifiedAt: "1787223128093"

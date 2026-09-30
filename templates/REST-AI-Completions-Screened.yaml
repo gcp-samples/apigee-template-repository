@@ -13,6 +13,10 @@ features:
   - ../features/ai-model-failover.yaml
   - ../features/ai-model-postprocess.yaml
 parameters:
+  - name: GoogleCloudProject
+    default: "{organization.name}"
+  - name: ModelArmorTemplate
+    default: "projects/{GoogleCloudProject}/locations/eu/templates/default-ma-template"
   - name: CompletionsBasePath
     default: /v1/chat/completions/modelarmor
   - name: SimpleModel

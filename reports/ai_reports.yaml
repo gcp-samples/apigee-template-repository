@@ -1,0 +1,1891 @@
+- name: 002b6065-a5ea-4b44-b814-a285f3e15514
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524288368"
+  lastModifiedAt: "1788524288368"
+- name: 00f47062-0be1-46d8-9a69-f6d2042a0498
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524214392"
+  lastModifiedAt: "1788524214392"
+- name: 02ae5b60-6bb4-416f-8fa1-1b9c82314d00
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1789024157126"
+  lastModifiedAt: "1789024157126"
+- name: 036353d2-cea0-43e1-bf16-a83f36076682
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524028825"
+  lastModifiedAt: "1788524028825"
+- name: 03843d1e-12ae-4392-9a0d-3522ffde8f3c
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223568932"
+  lastModifiedAt: "1787223568932"
+- name: 03954610-3696-4637-b0a4-445071fdd285
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525725965"
+  lastModifiedAt: "1788525725965"
+- name: 0777b719-4eb2-4784-9ee7-0379875c0be9
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524550351"
+  lastModifiedAt: "1788524550351"
+- name: 0e4a4c10-18f0-4362-9180-6f5f37c404be
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525725019"
+  lastModifiedAt: "1788525725019"
+- name: 1867edd9-564d-43a6-8911-dca1438ccb12
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1789023875299"
+  lastModifiedAt: "1789023875299"
+- name: 1a059019-50af-4c34-814f-ae061bb80694
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524029961"
+  lastModifiedAt: "1788524029961"
+- name: 21f37bc4-de7a-4f13-b5b2-ad1b0717a646
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524377531"
+  lastModifiedAt: "1788524377531"
+- name: 25820435-e87f-4eeb-9ad1-2a00710ade1e
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788525572637"
+  lastModifiedAt: "1788525572637"
+- name: 287a6bf6-ecea-44fb-85ed-0948a6e1a8c8
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787284045168"
+  lastModifiedAt: "1787284045168"
+- name: 2f3f25be-3d8b-4eb5-9d51-a0e1dabd7658
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524973946"
+  lastModifiedAt: "1788524973946"
+- name: 311059f0-f0c9-4610-a091-2ecf916f38ef
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788525830356"
+  lastModifiedAt: "1788525830356"
+- name: 311d4d0c-2692-4b84-afe1-bf16536e863f
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788525785925"
+  lastModifiedAt: "1788525785925"
+- name: 319c7965-174c-48bc-8d65-87c8180d49cd
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524432147"
+  lastModifiedAt: "1788524432147"
+- name: 37d0e1e5-0e06-41ba-8722-4b5d1cb01d54
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1789023877346"
+  lastModifiedAt: "1789023877346"
+- name: 38c30b72-8d00-4581-856f-d2901d1ca0cc
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787232753608"
+  lastModifiedAt: "1787232753608"
+- name: 3a59d88f-5290-4a04-a4e2-473adf4b7628
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524550821"
+  lastModifiedAt: "1788524550821"
+- name: 44887fd2-d77d-40e1-a6a5-b8ca5b1e3903
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788575775300"
+  lastModifiedAt: "1788575775300"
+- name: 4512678b-ad46-443f-987f-d3900f5b976e
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524248880"
+  lastModifiedAt: "1788524248880"
+- name: 452f8502-bdf2-400c-8b1d-78eb83440cd1
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787284047186"
+  lastModifiedAt: "1787284047186"
+- name: 490077db-9ab0-4219-ba04-3982584c448f
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525474504"
+  lastModifiedAt: "1788525474504"
+- name: 4c837125-4772-41bb-9884-b32e7ec69722
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524972730"
+  lastModifiedAt: "1788524972730"
+- name: 51b7f29d-ce68-4142-a142-bffa4f579252
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525573110"
+  lastModifiedAt: "1788525573110"
+- name: 562fe4df-bead-4059-ba7f-33e52d35c852
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223920918"
+  lastModifiedAt: "1787223920918"
+- name: 5b0fe1b0-ef7a-40f9-a4bf-c875a6337abf
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1789024023295"
+  lastModifiedAt: "1789024023295"
+- name: 5b103731-f1ca-40a1-9257-44cb23a363c7
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223566380"
+  lastModifiedAt: "1787223566380"
+- name: 5cb4300d-4bcc-41cc-b953-4bbf9ac45fe9
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524613905"
+  lastModifiedAt: "1788524613905"
+- name: 63a2a155-ee34-4245-8119-754516d575d2
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788575773869"
+  lastModifiedAt: "1788575773869"
+- name: 64111042-8560-4fbb-aad7-61a5813b23bf
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788575039878"
+  lastModifiedAt: "1788575039878"
+- name: 6dd2f2f1-9fdc-4e52-b900-9e73199d8086
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524248350"
+  lastModifiedAt: "1788524248350"
+- name: 6f334c3b-f46b-4d30-919f-08a95df4b913
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223448620"
+  lastModifiedAt: "1787223448620"
+- name: 6f883264-9681-4c1a-9091-b42722b51f1d
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223131050"
+  lastModifiedAt: "1787223131050"
+- name: 6fb90893-6e6f-49cb-b981-0a2ec13aaf06
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223918958"
+  lastModifiedAt: "1787223918958"
+- name: 70e7f3ff-08e6-44e1-969e-2840d2841212
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524287512"
+  lastModifiedAt: "1788524287512"
+- name: 7310b509-5d9e-4239-aa3d-9cfc44590ca7
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223450452"
+  lastModifiedAt: "1787223450452"
+- name: 753b6902-3ee1-43f2-9a85-1e0bfbfdae08
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524377112"
+  lastModifiedAt: "1788524377112"
+- name: 766a32f9-3cd5-424b-930a-431f70140d44
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787285637979"
+  lastModifiedAt: "1787285637979"
+- name: 76d14536-d2c2-4edc-a0dd-5d39feb9f0cb
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787232739375"
+  lastModifiedAt: "1787232739375"
+- name: 775d84be-723d-4f97-a97e-594dff8956df
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787223449557"
+  lastModifiedAt: "1787223449557"
+- name: 7d0a1697-c1bb-4fc0-bcdd-a15cc1f4f5a4
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525571975"
+  lastModifiedAt: "1788525571975"
+- name: 83e47bbf-f12d-4b8d-8cb7-4a333f12db6c
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524767759"
+  lastModifiedAt: "1788524767759"
+- name: 8591e545-59c4-4513-9c98-733cf5962182
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524433005"
+  lastModifiedAt: "1788524433005"
+- name: 86c2f9b6-3a14-4288-8b8b-6a1ec67ed947
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524213315"
+  lastModifiedAt: "1788524213315"
+- name: 8b69d62e-31c7-4739-bb52-e30b524642ab
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787232746666"
+  lastModifiedAt: "1787232746666"
+- name: 8e9d7e7e-120a-4a66-9456-67e0a98d68ca
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787223129063"
+  lastModifiedAt: "1787223129063"
+- name: 9058a528-b651-4f71-a7a2-0cd7d0f2f242
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1789024156581"
+  lastModifiedAt: "1789024156581"
+- name: 92860465-5ea6-4a3e-a39f-4f2f98da499e
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525407970"
+  lastModifiedAt: "1788525407970"
+- name: 962a51b1-279a-43c8-9d80-3c27ec8c4fc1
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525830822"
+  lastModifiedAt: "1788525830822"
+- name: 99ebebeb-fe0e-4d2a-8c0b-2e9416faaebb
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788525725536"
+  lastModifiedAt: "1788525725536"
+- name: a325dc18-6392-4a10-a4ad-4bddda082d34
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787285636618"
+  lastModifiedAt: "1787285636618"
+- name: a32988b4-b080-4240-ac5f-130d55b41c96
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524973437"
+  lastModifiedAt: "1788524973437"
+- name: a36a4f75-db16-4a35-b994-4b10f6423d54
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1789024155925"
+  lastModifiedAt: "1789024155925"
+- name: a4b16e36-42ba-4117-a38c-09c850e07130
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787284043498"
+  lastModifiedAt: "1787284043498"
+- name: a64953cd-b6d5-48b6-af92-aac96abaef21
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787223567579"
+  lastModifiedAt: "1787223567579"
+- name: a7103944-ab77-4916-ae56-79c253603e94
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524766842"
+  lastModifiedAt: "1788524766842"
+- name: a7315148-9662-4bf6-b7b9-0951c2ace40a
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788525408814"
+  lastModifiedAt: "1788525408814"
+- name: ae33b363-25a3-425e-ae24-17434a9ec5d6
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524551309"
+  lastModifiedAt: "1788524551309"
+- name: aed8a743-1cc9-4c37-9cb6-95880b3ab8ab
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1789024022263"
+  lastModifiedAt: "1789024022263"
+- name: b4b46407-248a-4e59-b4c1-04efd300683d
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787223130052"
+  lastModifiedAt: "1787223130052"
+- name: b54b9561-eccb-4ad2-ae4f-8d649fbbec3f
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524432647"
+  lastModifiedAt: "1788524432647"
+- name: b5c4a80f-fbf5-4b47-9e83-32cfe444b864
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524089259"
+  lastModifiedAt: "1788524089259"
+- name: b67a2bbb-f253-43ec-87f7-550045b2961a
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524249305"
+  lastModifiedAt: "1788524249305"
+- name: b721e829-7bcc-4eed-bf85-04573d780336
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525829897"
+  lastModifiedAt: "1788525829897"
+- name: b9463068-5691-4ac7-8b0d-d18950191270
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525409287"
+  lastModifiedAt: "1788525409287"
+- name: bba017a4-7869-4044-bfc9-c92be12415a6
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788500582688"
+  lastModifiedAt: "1788500582688"
+- name: bc51d143-0a98-4f51-ac79-115ab9a90339
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524767276"
+  lastModifiedAt: "1788524767276"
+- name: bdf7eaec-fa6c-4f8f-a363-fead55e6b1f0
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788575037266"
+  lastModifiedAt: "1788575037266"
+- name: c6219173-c2ab-4b40-a414-b59b3c551b6d
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788500583352"
+  lastModifiedAt: "1788500583352"
+- name: c6946d6d-ec64-4e89-8b48-a6652a7dda84
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1789023876220"
+  lastModifiedAt: "1789023876220"
+- name: c6b64d4e-75da-4770-978a-28b421aacb56
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524613539"
+  lastModifiedAt: "1788524613539"
+- name: c922d261-53f7-4657-8ae2-a58fd0ec6bc4
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788525474057"
+  lastModifiedAt: "1788525474057"
+- name: caf540c7-79dc-4af6-9d5b-e0e74c9974f7
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524029485"
+  lastModifiedAt: "1788524029485"
+- name: cba49d9a-8fff-4ddb-a90d-33402f54003a
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525785509"
+  lastModifiedAt: "1788525785509"
+- name: d1839063-67b9-4417-8137-715b8a4a7a88
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524376683"
+  lastModifiedAt: "1788524376683"
+- name: d2020778-eb66-40e4-b798-0dfe4c0b9680
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524088623"
+  lastModifiedAt: "1788524088623"
+- name: d28bf461-6309-4124-af32-a568d6904dc4
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525473584"
+  lastModifiedAt: "1788525473584"
+- name: d59d3856-61e7-4619-979a-76f7b5af49e1
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788575038564"
+  lastModifiedAt: "1788575038564"
+- name: d75c8520-5c53-4f4a-bf7a-d12989618f01
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524287008"
+  lastModifiedAt: "1788524287008"
+- name: d9939163-24bf-4301-90fe-9e2a2d366e09
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787232537402"
+  lastModifiedAt: "1787232537402"
+- name: dad021cd-4f9f-4b4e-8a28-7623b2a68a94
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787232536243"
+  lastModifiedAt: "1787232536243"
+- name: e298263d-cccd-4349-9b63-509276afeffd
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524614944"
+  lastModifiedAt: "1788524614944"
+- name: ee9e6efe-1f08-4716-a66c-48b4718b9f31
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1789024022716"
+  lastModifiedAt: "1789024022716"
+- name: f0e99394-20f1-4282-8131-cda33ddb71bb
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787285635346"
+  lastModifiedAt: "1787285635346"
+- name: f615e7c3-d5f7-4fd4-88b5-ea6cd6b9b524
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788575776635"
+  lastModifiedAt: "1788575776635"
+- name: f6245a8a-fce9-4ccd-b9d4-26643cbb47ba
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1787232538759"
+  lastModifiedAt: "1787232538759"
+- name: f6bc191c-c9e2-4aba-9c61-82cfa4b69a40
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1787223919954"
+  lastModifiedAt: "1787223919954"
+- name: f731e64e-593b-4ebf-a6a7-d7a12815e754
+  displayName: AI Token Counts by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_prompt_token_count
+      function: sum
+    - name: dc_ai_response_token_count
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788525786414"
+  lastModifiedAt: "1788525786414"
+- name: f7a361df-81af-440f-a6c7-61f88756101b
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788500582981"
+  lastModifiedAt: "1788500582981"
+- name: f94a0c54-ebd9-45b3-8efa-fcfbe0b33741
+  displayName: AI Token Cost by Model and User
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_cost
+      function: sum
+    - name: dc_ai_request_cost
+      function: sum
+    - name: dc_ai_response_cost
+      function: sum
+  dimensions:
+    - dc_ai_model
+    - developer_email
+  timeUnit: day
+  createdAt: "1788524088139"
+  lastModifiedAt: "1788524088139"
+- name: fb995293-f94b-4509-bef7-ec79bdaba482
+  displayName: AI Model Usage and Latency
+  type: report
+  gateway: apigee
+  schemaVersion: 1.0.0
+  description: ""
+  chartType: col
+  metrics:
+    - name: dc_ai_total_token_count
+      function: sum
+    - name: dc_ai_time_first_token
+      function: avg
+    - name: message_count
+      function: sum
+  dimensions:
+    - apiproxy
+    - dc_ai_model
+    - dc_ai_response_type
+  timeUnit: hour
+  createdAt: "1788524213847"
+  lastModifiedAt: "1788524213847"

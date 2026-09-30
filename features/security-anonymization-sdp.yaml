@@ -9,7 +9,9 @@ schemaVersion: 1.0.0
 categories:
   - security
   - ai
-parameters: []
+parameters:
+  - name: GoogleCloudProject
+    default: "{organization.name}"
 defaultEndpoint:
   name: default
   basePath: /security-sdp-mask
@@ -97,7 +99,7 @@ policies:
         Response: sdpResponse
         HTTPTargetConnection:
           Properties: {}
-          URL: https://dlp.googleapis.com/v2/projects/{organization.name}/content:deidentify
+          URL: "https://dlp.googleapis.com/v2/projects/{GoogleCloudProject}/content:deidentify"
           Authentication:
             GoogleAccessToken:
               Scopes:
