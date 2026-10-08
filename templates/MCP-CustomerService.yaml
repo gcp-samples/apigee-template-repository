@@ -1,5 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
 name: MCP-CustomerService
+displayName: Customer Service MCP
 type: template
 description: API template for MCP-CustomerService
 gateway: apigee
