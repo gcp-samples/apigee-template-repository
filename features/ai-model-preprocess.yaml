@@ -33,8 +33,6 @@ defaultEndpoint:
         - name: KVM-LoadConfig
         - name: AM-SetVariables
         - name: JS-CheckModel
-        - name: AM-SetGoogleToken
-          condition: ai.model JavaRegex "^smart-.*" AND request.header.Authorization == null
         - name: SC-ModelJudge
           condition: ai.model JavaRegex "^smart-.*"
         - name: JS-EvaluateSmartModel
@@ -315,23 +313,6 @@ policies:
           var googleCloudProject = context.getVariable("organization.name");
           context.setVariable("ai.googleCloudProject", googleCloudProject);
         IncludeURL: jsc://ai-functions.js
-  - name: AM-SetGoogleToken
-    type: AssignMessage
-    content:
-      AssignMessage:
-        metadata:
-          continueOnError: "false"
-          enabled: "true"
-          name: AM-SetGoogleToken
-        DisplayName: AM-SetGoogleToken
-        Properties: {}
-        Set:
-          Authentication:
-            HeaderName: Authorization
-            GoogleAccessToken:
-              Scopes:
-                Scope: https://www.googleapis.com/auth/cloud-platform
-        IgnoreUnresolvedVariables: "true"
   - name: SC-ModelJudge
     type: ServiceCallout
     content:
@@ -354,10 +335,6 @@ policies:
                 metadata:
                   name: Content-Type
                 _text: application/json
-            - Header:
-                metadata:
-                  name: Authorization
-                _text: "{request.header.authorization}"
             Payload:
               metadata:
                 contentType: application/json
@@ -378,6 +355,10 @@ policies:
         HTTPTargetConnection:
           Properties: {}
           URL: https://aiplatform.googleapis.com/v1/projects/{organization.name}/locations/global/publishers/google/models/gemini-3.5-flash-lite:generateContent
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
   - name: JS-EvaluateSmartModel
     type: Javascript
     content:

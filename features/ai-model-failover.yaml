@@ -30,30 +30,12 @@ defaultTarget:
   defaultFaultRule:
     name: default-fault
     steps:
-      - name: AM-SetGoogleToken
       - name: SC-Failover-GoogleCloud-OAI
       - name: JS-SetFailoverResponse
   faultRules: []
 endpoints: []
 targets: []
 policies:
-  - name: AM-SetGoogleToken
-    type: AssignMessage
-    content:
-      AssignMessage:
-        metadata:
-          continueOnError: "false"
-          enabled: "true"
-          name: AM-SetGoogleToken
-        DisplayName: AM-SetGoogleToken
-        Properties: {}
-        Set:
-          Authentication:
-            HeaderName: Authorization
-            GoogleAccessToken:
-              Scopes:
-                Scope: https://www.googleapis.com/auth/cloud-platform
-        IgnoreUnresolvedVariables: "true"
   - name: SC-Failover-GoogleCloud-OAI
     type: ServiceCallout
     content:
@@ -76,10 +58,6 @@ policies:
                 metadata:
                   name: Content-Type
                 _text: application/json
-            - Header:
-                metadata:
-                  name: Authorization
-                _text: "{response.header.authorization}"
             Payload:
               metadata:
                 contentType: application/json
@@ -98,6 +76,10 @@ policies:
         HTTPTargetConnection:
           Properties: {}
           URL: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/endpoints/openapi/chat/completions
+          Authentication:
+            GoogleAccessToken:
+              Scopes:
+                Scope: https://www.googleapis.com/auth/cloud-platform
   - name: JS-SetFailoverResponse
     type: Javascript
     content:
