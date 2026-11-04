@@ -16,35 +16,15 @@ parameters: []
 targets:
   - name: googlecloud
     url: https://aiplatform.eu.rep.googleapis.com/v1/projects
-    flows:
-      - name: PreFlow
-        mode: Request
-        steps:
-        - name: AM-SetGoogleToken
-          condition: request.header.Authorization == null
+    flows: []
     faultRules: []
-policies:
-  - name: AM-SetGoogleToken
-    type: AssignMessage
-    content:
-      AssignMessage:
-        metadata:
-          continueOnError: "false"
-          enabled: "true"
-          name: AM-SetGoogleToken
-        DisplayName: AM-SetGoogleToken
-        Properties: {}
-        Set:
-          Authentication:
-            HeaderName: Authorization
-            GoogleAccessToken:
-              Scopes:
-                Scope: https://www.googleapis.com/auth/cloud-platform
-        IgnoreUnresolvedVariables: "true"
-        AssignTo:
-          metadata:
-            createNew: "false"
-            transport: http
-            type: request
+    httpTargetConnection:
+      Properties: {}
+      URL: https://aiplatform.eu.rep.googleapis.com/v1/projects
+      Authentication:
+        GoogleAccessToken:
+          Scopes:
+            Scope: https://www.googleapis.com/auth/cloud-platform
+policies: []
 resources: []
 tests: []
