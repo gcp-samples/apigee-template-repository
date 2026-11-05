@@ -133,4 +133,33 @@ describe("getRequestInfo", () => {
     expect(res5.cleanModelName).toBe("claude-sonnet-5");
     expect(res5.targetRoute).toBe("googlecloud");
   });
+
+  it("should extract model from /models/{model} and recognize streamGenerateContent URL path", () => {
+    const streamInfo = getRequestInfo("/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse", {
+      contents: [{ role: "user", parts: [{ text: "Hello Gemini" }] }]
+    });
+    expect(streamInfo.modelName).toBe("gemini-3.8-flash");
+    expect(streamInfo.rawModelName).toBe("gemini-3.8-flash");
+    expect(streamInfo.cleanModelName).toBe("gemini-3.8-flash");
+    expect(streamInfo.isStreaming).toBe(true);
+    expect(streamInfo.streaming).toBe("streaming");
+    expect(streamInfo.protocol).toBe("google");
+    expect(streamInfo.provider).toBe("google");
+    expect(streamInfo.method).toBe("streamGenerateContent");
+    expect(streamInfo.targetRoute).toBe("googlecloud");
+    expect(streamInfo.input).toBe("Hello Gemini");
+
+    const nonStreamInfo = getRequestInfo("/v1beta/models/gemini-3.8-flash:generateContent", null);
+    expect(nonStreamInfo.modelName).toBe("gemini-3.8-flash");
+    expect(nonStreamInfo.cleanModelName).toBe("gemini-3.8-flash");
+    expect(nonStreamInfo.isStreaming).toBe(false);
+    expect(nonStreamInfo.method).toBe("generateContent");
+    expect(nonStreamInfo.provider).toBe("google");
+    expect(nonStreamInfo.protocol).toBe("google");
+
+    const plainModelInfo = getRequestInfo("/models/gemini-3.8-flash", null);
+    expect(plainModelInfo.modelName).toBe("gemini-3.8-flash");
+    expect(plainModelInfo.cleanModelName).toBe("gemini-3.8-flash");
+    expect(plainModelInfo.provider).toBe("google");
+  });
 });

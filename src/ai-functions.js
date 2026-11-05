@@ -210,17 +210,31 @@ function getRequestInfo(urlString, content, contentType, routingConfig) {
     info.protocol = "openai";
   }
 
-  // 4. Extract modelName from GCP publisher URL format if not yet determined
+  // 4. Extract modelName from GCP publisher or /models/{model} URL format if not yet determined
   if (info.modelName === "unknown" && url) {
     if (url.indexOf("/publishers/anthropic/models/") !== -1) {
       var aParts = url.split("/publishers/anthropic/models/");
       if (aParts.length > 1) {
-        info.modelName = aParts[1].split(":")[0];
+        info.modelName = aParts[1].split(":")[0].split("?")[0];
       }
     } else if (url.indexOf("/publishers/google/models/") !== -1) {
       var gParts = url.split("/publishers/google/models/");
       if (gParts.length > 1) {
-        info.modelName = gParts[1].split(":")[0];
+        info.modelName = gParts[1].split(":")[0].split("?")[0];
+      }
+    } else if (url.indexOf("/models/") !== -1) {
+      var mParts = url.split("/models/");
+      if (mParts.length > 1) {
+        var m = mParts[mParts.length - 1].split(":")[0].split("?")[0].split("/")[0].split("#")[0].trim();
+        if (m) {
+          info.modelName = m;
+        }
+      }
+    } else if (url.indexOf(":streamGenerate") !== -1) {
+      var sgenParts = url.split(":streamGenerate");
+      if (sgenParts.length > 1) {
+        var suParts = sgenParts[0].split("/");
+        info.modelName = suParts[suParts.length - 1];
       }
     } else if (url.indexOf(":generate") !== -1) {
       var genParts = url.split(":generate");
@@ -270,7 +284,11 @@ function getRequestInfo(urlString, content, contentType, routingConfig) {
   }
 
   if (info.protocol === "unknown" && url) {
-    if (url.indexOf("/publishers/google/") !== -1) {
+    if (
+      url.indexOf("/publishers/google/") !== -1 ||
+      url.indexOf(":generate") !== -1 ||
+      url.indexOf(":streamGenerate") !== -1
+    ) {
       info.protocol = "google";
     } else if (url.indexOf("/publishers/anthropic/") !== -1) {
       info.protocol = "anthropic";
@@ -374,6 +392,10 @@ function getRequestInfo(urlString, content, contentType, routingConfig) {
     if (info.mappedModelName) {
       info.modelName = cleanModel;
     }
+  }
+
+  if (info.protocol === "unknown" && info.provider && info.provider !== "unknown") {
+    info.protocol = info.provider;
   }
 
   // 7. Method resolution based on provider and streaming

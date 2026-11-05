@@ -90,6 +90,8 @@ describe("ai-functions.js unit tests", () => {
   it("should detect model name correctly", () => {
     expect(getModelName(null, JSON.stringify({ model: "openai/gpt-4o" }))).toBe("gpt-4o");
     expect(getModelName("/publishers/google/models/gemini-1.5-pro:predict", null)).toBe("gemini-1.5-pro");
+    expect(getModelName("/v1beta/models/gemini-3.8-flash:streamGenerateContent?alt=sse", null)).toBe("gemini-3.8-flash");
+    expect(getModelName("/models/gemini-3.8-flash", null)).toBe("gemini-3.8-flash");
   });
 
   it("should determine target route and extract provider name", () => {
