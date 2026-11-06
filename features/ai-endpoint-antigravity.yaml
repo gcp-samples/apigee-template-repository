@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/apigee/apigee-templater/main/schema/gateway.schema.1.0.json
+name: ai-endpoint-antigravity
+displayName: Antigravity GenAI Endpoint
+type: feature
+description: Feature for Antigravity endpoints and telemetry acknowledgment
+documentation: "https://gcp-samples.github.io/apigee-template-repository?file=features%2Fai-endpoint-antigravity.yaml"
+gateway: apigee
+schemaVersion: 1.0.0
+categories: []
+parameters: []
+endpoints:
+  - name: antigravity
+    basePath: /antigravity
+    routes: []
+    flows:
+      - name: PreFlow
+        mode: Request
+        steps:
+          - name: RF-AcknowledgeTelemetry
+            condition: proxy.url ~~ ".*/v1beta:.*"
+    faultRules: []
+  - name: models
+    basePath: /antigravity/v1beta/models
+    routes: []
+    flows: []
+    faultRules: []
+targets: []
+policies:
+  - name: RF-AcknowledgeTelemetry
+    type: RaiseFault
+    content:
+      RaiseFault:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          name: RF-AcknowledgeTelemetry
+        DisplayName: RF-AcknowledgeTelemetry
+        Properties: {}
+        FaultResponse:
+          Set:
+            StatusCode: "200"
+            ReasonPhrase: OK
+            Headers:
+              Header:
+                metadata:
+                  name: Content-Type
+                _text: application/json
+            Payload:
+              metadata:
+                contentType: application/json
+              _text: "{}"
+        IgnoreUnresolvedVariables: "true"
+resources: []
+tests: []

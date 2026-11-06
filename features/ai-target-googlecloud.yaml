@@ -16,16 +16,21 @@ defaultEndpoint:
     - name: route-googlecloud-oai
       condition: target.route = "googlecloud-oai"
       target: googlecloud-oai
-    - name: route-googlecloud-projects
+    - name: route-googlecloud-project
       condition: target.route = "googlecloud-project"
-      target: googlecloud-projects
+      target: googlecloud-project
     - name: default
       target: googlecloud
 endpoints: []
 targets:
-  - name: googlecloud-projects
+  - name: googlecloud-project
     url: https://aiplatform.googleapis.com/v1/projects
-    flows: []
+    flows:
+      - name: PreFlow
+        mode: Request
+        steps:
+          - name: JS-SetTargetUrl
+            condition: proxy.url !~~ ".*/projects/.*"
     faultRules: []
     httpTargetConnection:
       Properties: {}
@@ -56,6 +61,46 @@ targets:
         GoogleAccessToken:
           Scopes:
             Scope: https://www.googleapis.com/auth/cloud-platform
-policies: []
+policies:
+  - name: JS-SetTargetUrl
+    type: Javascript
+    content:
+      Javascript:
+        metadata:
+          continueOnError: "false"
+          enabled: "true"
+          timeLimit: "200"
+          name: JS-SetTargetUrl
+        DisplayName: JS-SetTargetUrl
+        Properties: {}
+        Source: |
+          var suffix = context.getVariable("proxy.pathsuffix") || "";
+          var qs = context.getVariable("request.querystring");
+          if (!qs) {
+            var uri = context.getVariable("request.uri") || "";
+            var qIdx = uri.indexOf("?");
+            if (qIdx !== -1) {
+              qs = uri.substring(qIdx + 1);
+            }
+          }
+          var host = "https://aiplatform.googleapis.com";
+          var currentTargetUrl = context.getVariable("target.url");
+          if (currentTargetUrl) {
+            var match = currentTargetUrl.match(/^(https?:\/\/[^\/]+)/);
+            if (match) {
+              host = match[1];
+            }
+          }
+          var project = "{GoogleCloudProject}";
+          if (project.indexOf("{") !== -1) {
+            project = context.getVariable("GoogleCloudProject") || context.getVariable("organization.name") || "";
+          }
+          var provider = context.getVariable("ai.provider") || "google";
+          var targetUrl = host + "/v1/projects/" + project + "/locations/global/publishers/" + provider + "/models" + suffix;
+          if (qs) {
+            targetUrl += "?" + qs;
+          }
+          context.setVariable("target.copy.pathsuffix", false);
+          context.setVariable("target.url", targetUrl);
 resources: []
 tests: []
