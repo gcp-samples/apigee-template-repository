@@ -33,7 +33,11 @@ targets:
             condition: proxy.url !~~ ".*/projects/.*"
     faultRules: []
     httpTargetConnection:
-      Properties: {}
+      Properties:
+        Property:
+          metadata:
+            name: io.timeout.millis
+          _text: "600000"
       URL: https://aiplatform.googleapis.com/v1/projects
       Authentication:
         GoogleAccessToken:
@@ -44,7 +48,11 @@ targets:
     flows: []
     faultRules: []
     httpTargetConnection:
-      Properties: {}
+      Properties:
+        Property:
+          metadata:
+            name: io.timeout.millis
+          _text: "600000"
       URL: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/endpoints/openapi/chat/completions
       Authentication:
         GoogleAccessToken:
@@ -55,7 +63,11 @@ targets:
     flows: []
     faultRules: []
     httpTargetConnection:
-      Properties: {}
+      Properties:
+        Property:
+          metadata:
+            name: io.timeout.millis
+          _text: "600000"
       URL: https://aiplatform.googleapis.com/v1/projects/{GoogleCloudProject}/locations/global/publishers/{ai.provider}/models/{ai.model}:{ai.method}
       Authentication:
         GoogleAccessToken:
